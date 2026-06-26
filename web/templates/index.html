@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG 知识库</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <!-- 左栏：知识库管理 -->
+    <aside id="sidebar">
+        <div class="sidebar-header">
+            <h2>📄 知识库</h2>
+        </div>
+
+        <!-- 拖拽上传区域 -->
+        <div id="drop-zone" ondragover="event.preventDefault()" ondrop="handleDrop(event)">
+            <div class="drop-icon">📁</div>
+            <p>拖拽文件到此处上传</p>
+            <p class="drop-hint">支持 txt / md / pdf</p>
+            <input type="file" id="file-input" accept=".txt,.md,.pdf" onchange="handleFileSelect(event)" hidden
+                multiple>
+            <button onclick="document.getElementById('file-input').click()" class="btn-select">选择文件</button>
+        </div>
+
+        <!-- 已导入文件列表 -->
+        <div id="file-list">
+            <div class="file-list-title">已导入的文档</div>
+            <div id="file-items">
+                <div class="file-item-empty">暂无文档，请上传</div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- 右栏：对话区 -->
+    <main id="chat-area">
+        <div class="chat-header">
+            <h1>🔍 RAG 知识库</h1>
+        </div>
+
+        <!-- 消息列表 -->
+        <div id="messages">
+            <div class="message welcome">
+                <div class="msg-avatar">🤖</div>
+                <div class="msg-content">
+                    <p>你好！我是知识助手。</p>
+                    <p>请在左下角输入你的问题，我会基于知识库为你回答。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 输入区 -->
+        <div class="chat-input">
+            <input type="text" id="question-input" placeholder="请输问题..."
+                onkeydown="if(event.key==='Enter')sendMessage()">
+            <button onclick="sendMessage()" id="send-btn">发送</button>
+        </div>
+    </main>
+
+    <script>
+        // ===== 文件上传 =====
+
+        function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/api/upload', { method: 'POST', body: formData })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.ok) {
+                        addFileItem(data.filename);
+                    } else {
+                        alert('上传失败: ' + data.error);
+                    }
+                })
+                .catch(err => alert('上传失败: ' + err));
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            const files = e.dataTransfer.files;
+            for (const file of files) {
+                uploadFile(file);
+            }
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            for (const file of files) {
+                uploadFile(file);
+            }
+            e.target.value = '';
+        }
+
+        function addFileItem(filename) {
+            const container = document.getElementById('file-items');
+            // 移除空状态提示
+            const empty = container.querySelector('.file-item-empty');
+            if (empty) empty.remove();
+
+            const div = document.createElement('div');
+            div.className = 'file-item';
+            div.textContent = '📎 ' + filename;
+            container.prepend(div);
+        }
+
+        // ===== 聊天 =====
+
+        function sendMessage() {
+            const input = document.getElementById('question-input');
+            const question = input.value.trim();
+            if (!question) return;
+
+            // 显示用户消息
+            appendMessage('user', question);
+            input.value = '';
+            input.disabled = true;
+            document.getElementById('send-btn').disabled = true;
+
+            // 创建 AI 回答气泡
+            const msgDiv = appendMessage('assistant', '');
+            const contentDiv = msgDiv.querySelector('.msg-content');
+
+            // SSE 流式接收
+            const eventSource = new EventSource('/api/chat/stream?q=' + encodeURIComponent(question));
+
+            eventSource.addEventListener('token', function (e) {
+                contentDiv.textContent += e.data;
+                // 自动滚到底部
+                document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+            });
+
+            eventSource.addEventListener('error', function (e) {
+                contentDiv.textContent += ' [回答出错]';
+                eventSource.close();
+                input.disabled = false;
+                document.getElementById('send-btn').disabled = false;
+            });
+
+            eventSource.addEventListener('done', function (e) {
+                eventSource.close();
+                input.disabled = false;
+                document.getElementById('send-btn').disabled = false;
+                input.focus();
+            });
+        }
+
+        function appendMessage(role, text) {
+            const messages = document.getElementById('messages');
+            const div = document.createElement('div');
+            div.className = 'message ' + role;
+            div.innerHTML = '<div class="msg-avatar">' + (role === 'user' ? '👤' : '🤖') + '</div>' +
+                '<div class="msg-content">' + text + '</div>';
+            messages.appendChild(div);
+            messages.scrollTop = messages.scrollHeight;
+            return div;
+        }
+        // ===== 页面加载时读取已有文件 =====
+        window.addEventListener('DOMContentLoaded', function () {
+            fetch('/api/file')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.files && data.files.length > 0) {
+                        for (const f of data.files) {
+                            addFileItem(f);
+                        }
+                    }
+                });
+        });
+    </script>
+</body>
+
+</html>

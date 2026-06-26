@@ -26,10 +26,46 @@ func ImportDoc(vs *store.VectorStore, content string) error {
 
 // ask 提问
 func Ask(vs *store.VectorStore, question string) (string, error) {
+	// 	//1 问题向量化
+	// 	queryVec, err := embedder.GetEmbedding(question)
+	// 	if err != nil {
+	// 		return "", err
+	// 	}
+	// 	//2 检索topk
+	// 	results := vs.Search(queryVec, 5)
+
+	// 	//3 拼接答案
+	// 	var contextBuilder strings.Builder
+	// 	for _, c := range results {
+	// 		contextBuilder.WriteString(fmt.Sprintf("- %s\n", c.Text))
+	// 	}
+
+	// 	//4 构造prompt
+	// 	prompt := fmt.Sprintf(`你是一个知识助手，请根据以下参考资料回答问题。
+
+	// 参考资料：
+	// %s
+
+	// 问题：%s
+
+	// 请用中文回答。`, contextBuilder.String(), question)
+
+	prompt := AskThreeSteps(vs, question)
+
+	//5调用llm
+	answer, err := llm.CallDeepseekAPI(prompt, nil)
+	if err != nil {
+		return "", fmt.Errorf("api 调用 error: %v", err)
+	}
+	return answer, nil
+}
+
+// ask的前三步给抽象出来
+func AskThreeSteps(vs *store.VectorStore, question string) string {
 	//1 问题向量化
 	queryVec, err := embedder.GetEmbedding(question)
 	if err != nil {
-		return "", err
+		return ""
 	}
 	//2 检索topk
 	results := vs.Search(queryVec, 5)
@@ -41,7 +77,7 @@ func Ask(vs *store.VectorStore, question string) (string, error) {
 	}
 
 	//4 构造prompt
-	prompt := fmt.Sprintf(`你是一个安全知识助手，请根据以下参考资料回答问题。
+	prompt := fmt.Sprintf(`你是一个知识助手，请根据以下参考资料回答问题。
 
 参考资料：
 %s
@@ -50,10 +86,5 @@ func Ask(vs *store.VectorStore, question string) (string, error) {
 
 请用中文回答。`, contextBuilder.String(), question)
 
-	//5调用llm
-	answer, err := llm.CallDeepseekAPI(prompt)
-	if err != nil {
-		return "", fmt.Errorf("api 调用 error: %v", err)
-	}
-	return answer, nil
+	return prompt
 }

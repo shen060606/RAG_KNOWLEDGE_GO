@@ -51,7 +51,7 @@ func CreateAuthHeader() http.Header {
 }
 
 // callDeepseekAPI 调用 DeepSeek Chat API，流式输出回答内容
-func CallDeepseekAPI(prompt string) (string, error) {
+func CallDeepseekAPI(prompt string, onToken func(string)) (string, error) {
 	// 1. 构建请求体
 	reqBody := BuildRequest(prompt)
 	jsonData, err := json.Marshal(reqBody)
@@ -121,12 +121,18 @@ func CallDeepseekAPI(prompt string) (string, error) {
 		}
 
 		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
-			fmt.Print(chunk.Choices[0].Delta.Content)
+
+			if onToken != nil {
+				onToken(chunk.Choices[0].Delta.Content)
+			} else {
+				fmt.Print(chunk.Choices[0].Delta.Content)
+			}
 			fullAnswer.WriteString(chunk.Choices[0].Delta.Content) //保存下来
 		}
 	}
-
-	fmt.Println() // 流式输出结束后换行
+	if onToken == nil {
+		fmt.Println() // 流式输出结束后换行
+	}
 
 	if err := scanner.Err(); err != nil {
 		return "", fmt.Errorf("scanner error: %v", err)
