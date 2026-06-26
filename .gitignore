@@ -28,4 +28,4 @@ Thumbs.db
 vendor/
 
 # 不上传uploads里面的文件，太大了
-uploads/
+uploads/*
