@@ -1,0 +1,29 @@
+server:
+  port: 8088
+
+mysql:
+  host: 127.0.0.1
+  port: 3306
+  user: root
+  password: 123456
+  database: rag_knowledge
+
+redis:
+  addr: 127.0.0.1:6379
+  db: 0
+  embedding_cache_ttl: 86400   # Embedding 缓存 24 小时
+
+llm:
+  model: deepseek-chat
+  temperature: 0.7
+  max_tokens: 2048
+
+embedding:
+  model: BAAI/bge-large-zh-v1.5
+
+chunk:
+  size: 500
+  overlap: 50
+
+search:
+  top_k: 5

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/shen060606/rag_koowledge_go/internal/database"
 	"github.com/shen060606/rag_koowledge_go/internal/rag"
 	"github.com/shen060606/rag_koowledge_go/internal/store"
 	"github.com/shen060606/rag_koowledge_go/internal/uploads"
@@ -35,14 +36,23 @@ func UploadHandler(vs *store.VectorStore) gin.HandlerFunc {
 			return
 		}
 
-		if err := rag.ImportDoc(vs, content); err != nil {
+		chunkcount, err := rag.ImportDoc(vs, content)
+		if err != nil {
 			c.JSON(500, gin.H{
 				"msg": "导入知识库失败",
 			})
 			return
 		}
 
-		// 4. 返回 {"ok":true, "filename":"..."}
+		// 4. 保存到数据库
+		database.CreateDocument(
+			avator.Filename,
+			avator.Size,
+			chunkcount,
+			"ready",
+		)
+
+		// 5. 返回 {"ok":true, "filename":"..."}
 		c.JSON(200, gin.H{
 			"ok":       true,
 			"filename": avator.Filename,

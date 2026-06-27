@@ -60,6 +60,9 @@
     </main>
 
     <script>
+        // ===== 会话 ID（页面加载时生成一次） =====
+        const sessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+
         // ===== 文件上传 =====
 
         function uploadFile(file) {
@@ -70,9 +73,14 @@
                 .then(res => res.json())
                 .then(data => {
                     if (data.ok) {
-                        addFileItem(data.filename);
+                        // 上传成功后直接加到列表，填充已知信息
+                        addFileItem({
+                            filename: data.filename,
+                            chunk_count: data.chunkCount || 0,
+                            created_at: '刚刚',
+                        });
                     } else {
-                        alert('上传失败: ' + data.error);
+                        alert('上传失败: ' + (data.msg || data.error));
                     }
                 })
                 .catch(err => alert('上传失败: ' + err));
@@ -94,15 +102,17 @@
             e.target.value = '';
         }
 
-        function addFileItem(filename) {
+        // file 参数是对象：{filename, chunk_count, created_at}
+        function addFileItem(file) {
             const container = document.getElementById('file-items');
-            // 移除空状态提示
             const empty = container.querySelector('.file-item-empty');
             if (empty) empty.remove();
 
             const div = document.createElement('div');
             div.className = 'file-item';
-            div.textContent = '📎 ' + filename;
+            div.textContent = '📎 ' + file.filename
+                + ' · ' + (file.chunk_count || 0) + ' chunks'
+                + ' · ' + (file.created_at || '');
             container.prepend(div);
         }
 
@@ -123,12 +133,13 @@
             const msgDiv = appendMessage('assistant', '');
             const contentDiv = msgDiv.querySelector('.msg-content');
 
-            // SSE 流式接收
-            const eventSource = new EventSource('/api/chat/stream?q=' + encodeURIComponent(question));
+            // SSE 流式接收（带上 session_id）
+            const url = '/api/chat/stream?q=' + encodeURIComponent(question)
+                + '&session_id=' + encodeURIComponent(sessionId);
+            const eventSource = new EventSource(url);
 
             eventSource.addEventListener('token', function (e) {
                 contentDiv.textContent += e.data;
-                // 自动滚到底部
                 document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
             });
 
@@ -157,6 +168,7 @@
             messages.scrollTop = messages.scrollHeight;
             return div;
         }
+
         // ===== 页面加载时读取已有文件 =====
         window.addEventListener('DOMContentLoaded', function () {
             fetch('/api/file')

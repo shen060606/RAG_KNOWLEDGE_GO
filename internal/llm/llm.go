@@ -10,6 +10,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/shen060606/rag_koowledge_go/config"
 )
 
 const apiEndpoint = "https://api.deepseek.com/v1/chat/completions"
@@ -30,12 +32,23 @@ type ChatRequest struct {
 
 func BuildRequest(prompt string) *ChatRequest {
 	return &ChatRequest{
-		Model: "deepseek-chat",
+		Model: config.Cfg.LLM.Model,
 		Messages: []Message{
 			{Role: "user", Content: prompt},
 		},
-		Temperature: 0.7,
-		MaxTokens:   2048,
+		Temperature: config.Cfg.LLM.Temperature,
+		MaxTokens:   config.Cfg.LLM.MaxTokens,
+		Stream:      true,
+	}
+}
+
+// BuildRequestHistory 构建历史对话请求体
+func BuildRequestHistory(messages []Message) *ChatRequest {
+	return &ChatRequest{
+		Model:       config.Cfg.LLM.Model,
+		Messages:    messages,
+		Temperature: config.Cfg.LLM.Temperature,
+		MaxTokens:   config.Cfg.LLM.MaxTokens,
 		Stream:      true,
 	}
 }
@@ -50,11 +63,9 @@ func CreateAuthHeader() http.Header {
 	}
 }
 
-// callDeepseekAPI 调用 DeepSeek Chat API，流式输出回答内容
-func CallDeepseekAPI(prompt string, onToken func(string)) (string, error) {
-	// 1. 构建请求体
-	reqBody := BuildRequest(prompt)
-	jsonData, err := json.Marshal(reqBody)
+// dorequest  发起 HTTP 流式请求到 DeepSeek
+func dorequest(reqbody *ChatRequest, onToken func(string)) (string, error) {
+	jsonData, err := json.Marshal(reqbody)
 	if err != nil {
 		return "", fmt.Errorf("json marshal error: %v", err)
 	}
@@ -139,4 +150,14 @@ func CallDeepseekAPI(prompt string, onToken func(string)) (string, error) {
 	}
 
 	return fullAnswer.String(), nil
+}
+
+// CallDeepseekAPI 单轮对话（CLI / 简单调用）
+func CallDeepseekAPI(prompt string, onToken func(string)) (string, error) {
+	return dorequest(BuildRequest(prompt), onToken)
+}
+
+// 多轮对话，外面拼好历史对话内容，传入
+func CallDeepseekAPIHistory(messages []Message, onToken func(string)) (string, error) {
+	return dorequest(BuildRequestHistory(messages), onToken)
 }
