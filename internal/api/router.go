@@ -6,7 +6,7 @@ import (
 	"github.com/shen060606/rag_koowledge_go/internal/store"
 )
 
-func Setup(vs *store.VectorStore) *gin.Engine {
+func Setup(vs store.Store) *gin.Engine {
 	// gin.SetMode("release")
 	r := gin.Default()
 

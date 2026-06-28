@@ -76,3 +76,10 @@ func GetSessionHistory(sessionid string) ([]ChatHistory, error) {
 	err := DB.Where("session_id = ?", sessionid).Order("created_at DESC").Find(&history).Error
 	return history, err
 }
+
+// DocumentExists 检查文件是否已导入
+func DocumentExists(filename string) bool {
+	var count int64
+	DB.Model(&Document{}).Where("filename = ? AND status = ?", filename, "ready").Count(&count)
+	return count > 0
+}

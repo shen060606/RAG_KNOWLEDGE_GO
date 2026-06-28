@@ -6,7 +6,7 @@ import (
 	"github.com/shen060606/rag_koowledge_go/internal/store"
 )
 
-func ScanFile(vs *store.VectorStore) gin.HandlerFunc {
+func ScanFile(vs store.Store) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		docs, err := database.ListDocuments()
 		if err != nil {

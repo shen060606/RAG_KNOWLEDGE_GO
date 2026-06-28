@@ -34,24 +34,39 @@ func main() {
 	embedder.InitRedis(config.Cfg.Redis.Addr, config.Cfg.Redis.DB)
 
 	//3 初始化向量存储器
-	vs := store.NewVectorStore()
+	var vs store.Store
+	var err error
+
+	vs, err = store.NewQdrantStore("127.0.0.1", 6333)
+	if err != nil {
+		slog.Warn("Qdrant不可用，降级为内存存储", "err", err)
+		vs = store.NewMemoryStore()
+	}
 
 	//4  导入知识库
-	err := uploads.WalkDir("uploads", func(path string) error {
+	err = uploads.WalkDir("uploads", func(path string) error {
+		filename := filepath.Base(path) // "uploads/1.txt" → "1.txt"
+
+		// 查数据库，已存在就跳过
+		if database.DocumentExists(filename) {
+			slog.Info("文档已存在，跳过", "path", path)
+			return nil
+		}
+
 		content, err := uploads.ProcessFile(path)
 		if err != nil {
 			slog.Warn("跳过文件", "path", path, "err", err)
 			return nil
 		}
 
-		chunkcount, err := rag.ImportDoc(vs, content)
+		chunkcount, err := rag.ImportDoc(vs, filename, content)
 		if err != nil {
 			slog.Error("导入文档失败", "path", path, "err", err)
 			return nil
 		}
 
 		// 同时写数据库（只存文件名，不存完整路径）
-		if _, err := database.CreateDocument(filepath.Base(path), int64(len(content)), chunkcount, "ready"); err != nil {
+		if _, err := database.CreateDocument(filename, int64(len(content)), chunkcount, "ready"); err != nil {
 			slog.Error("写入数据库失败", "path", path, "err", err)
 		}
 		slog.Info("文档已导入", "path", path, "chunks", chunkcount)

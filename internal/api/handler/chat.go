@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"log/slog"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/shen060606/rag_koowledge_go/internal/database"
 	"github.com/shen060606/rag_koowledge_go/internal/llm"
@@ -8,7 +11,7 @@ import (
 	"github.com/shen060606/rag_koowledge_go/internal/store"
 )
 
-func ChatStream(vs *store.VectorStore) gin.HandlerFunc {
+func ChatStream(vs store.Store) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		q := c.Query("q")
 		if q == "" {
@@ -31,8 +34,11 @@ func ChatStream(vs *store.VectorStore) gin.HandlerFunc {
 
 		}
 
-		//2 rag检索，拼接prompt
+		//2 rag检索，拼接prompt，记录耗时开始
+		startEmbed := time.Now()
 		prompt := rag.AskThreeSteps(vs, q)
+		embedCost := time.Since(startEmbed) // AskThreeSteps 内部含 Embedding + Search
+
 		messages = append(messages, llm.Message{Role: "user", Content: prompt})
 
 		//3 存用户消息到数据库
@@ -43,16 +49,30 @@ func ChatStream(vs *store.VectorStore) gin.HandlerFunc {
 		c.Header("Cache-Control", "no-cache")
 		c.Header("Connection", "keep-alive")
 
-		// 5. 流式调用llm发给前端,多轮回答
+		// 5. 流式调用llm发给前端,多轮回答,计算思考耗时TTFT(等待第一个token生成时间，衡量 LLM 流式响应快慢核心指标)
+		startLLM := time.Now()
+		var firstToken bool
 		answer, err := llm.CallDeepseekAPIHistory(messages, func(token string) {
+			if !firstToken {
+				slog.Info("[Ask] LLM 首token延迟", "cost", time.Since(startLLM))
+				firstToken = true
+			}
 			c.SSEvent("token", token)
 			c.Writer.Flush() //接受到一个token就发到前端，不阻塞
 
 		})
+
 		if err != nil {
 			c.SSEvent("error", err.Error())
 			return
 		}
+
+		totalCost := time.Since(startEmbed) //总耗时
+		slog.Info("[Ask] 请求完成",
+			"embedding+search", embedCost,
+			"llm_total", time.Since(startLLM),
+			"total", totalCost,
+		)
 
 		//6 存ai回答到数据库
 		database.SaveMessage(sessionID, "assistant", answer)

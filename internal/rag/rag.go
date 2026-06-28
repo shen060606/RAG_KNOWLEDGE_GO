@@ -1,7 +1,10 @@
 package rag
 
 import (
+	"crypto/md5"
+	"encoding/binary"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/shen060606/rag_koowledge_go/config"
@@ -11,8 +14,12 @@ import (
 	"github.com/shen060606/rag_koowledge_go/internal/store"
 )
 
-// Importdoc 导入文档
-func ImportDoc(vs *store.VectorStore, content string) (int, error) {
+// Importdoc 导入文档。filename 用于生成全局唯一的 chunk ID，防止不同文档的 chunk 互相覆盖。
+func ImportDoc(vs store.Store, filename string, content string) (int, error) {
+	// 用文件名 hash 的前 4 字节作为文档编号，乘 100000 保证不同文档的 chunk ID 不冲突
+	hash := md5.Sum([]byte(filename))
+	docBase := int(binary.BigEndian.Uint32(hash[:4])) * 100000
+
 	chunks := chunker.SplitText(content, config.Cfg.Chunk.Size, config.Cfg.Chunk.Overlap)
 	for _, c := range chunks {
 		vec, err := embedder.EmbedderCache(c.Text)
@@ -20,13 +27,13 @@ func ImportDoc(vs *store.VectorStore, content string) (int, error) {
 			return len(chunks), err
 		}
 
-		vs.Add(c.ID, c.Text, vec)
+		vs.Add(docBase+c.ID, c.Text, vec) // 全局唯一 ID
 	}
 	return len(chunks), nil
 }
 
 // ask 提问
-func Ask(vs *store.VectorStore, question string) (string, error) {
+func Ask(vs store.Store, question string) (string, error) {
 	// 	//1 问题向量化
 	// 	queryVec, err := embedder.GetEmbedding(question)
 	// 	if err != nil {
@@ -62,14 +69,18 @@ func Ask(vs *store.VectorStore, question string) (string, error) {
 }
 
 // ask的前三步给抽象出来
-func AskThreeSteps(vs *store.VectorStore, question string) string {
+func AskThreeSteps(vs store.Store, question string) string {
 	//1 问题向量化
 	queryVec, err := embedder.EmbedderCache(question)
 	if err != nil {
 		return ""
 	}
 	//2 检索topk
-	results := vs.Search(queryVec, config.Cfg.Search.TopK)
+	results, err := vs.Search(queryVec, config.Cfg.Search.TopK)
+	if err != nil {
+		slog.Error(err.Error())
+		return ""
+	}
 
 	//3 拼接答案
 	var contextBuilder strings.Builder
@@ -78,26 +89,12 @@ func AskThreeSteps(vs *store.VectorStore, question string) string {
 	}
 
 	//4 构造prompt
-	prompt := fmt.Sprintf(`你是一个知识助手。请按以下规则回答：
+	prompt := fmt.Sprintf(`你是一个知识助手。请根据以下参考资料回答用户问题。如果资料中有相关信息，优先使用；如果资料中没有，可以基于你自己的知识补充。
 
-1. 优先根据参考资料回答问题
-2. 如果参考资料中有答案，回答格式：
-   "【来自知识库】
-   你的回答内容..."
-
-3. 如果参考资料中信息不足，回答格式：
-   "【来自知识库】
-   未在知识库文档中找到相关内容。
-
-   【来自外部知识】
-   根据现有知识，...（你的补充回答）"
-
-现在开始，参考资料如下：
----
+参考资料：
 %s
----
-问题：%s
-`, contextBuilder.String(), question)
+
+问题：%s`, contextBuilder.String(), question)
 
 	return prompt
 }

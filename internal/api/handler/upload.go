@@ -8,7 +8,7 @@ import (
 	"github.com/shen060606/rag_koowledge_go/internal/uploads"
 )
 
-func UploadHandler(vs *store.VectorStore) gin.HandlerFunc {
+func UploadHandler(vs store.Store) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 1. c.FormFile("file") 拿文件
 		avator, err := c.FormFile("file")
@@ -27,7 +27,13 @@ func UploadHandler(vs *store.VectorStore) gin.HandlerFunc {
 			})
 			return
 		}
-		// 3. 读内容，调 rag.ImportDoc(vs, content)
+		// 3. 检查重复
+		if database.DocumentExists(avator.Filename) {
+			c.JSON(409, gin.H{"msg": "文件已存在，请勿重复上传"})
+			return
+		}
+
+		// 4. 读内容，调 rag.ImportDoc
 		content, err := uploads.ProcessFile(dst)
 		if err != nil {
 			c.JSON(500, gin.H{
@@ -36,7 +42,7 @@ func UploadHandler(vs *store.VectorStore) gin.HandlerFunc {
 			return
 		}
 
-		chunkcount, err := rag.ImportDoc(vs, content)
+		chunkcount, err := rag.ImportDoc(vs, avator.Filename, content)
 		if err != nil {
 			c.JSON(500, gin.H{
 				"msg": "导入知识库失败",
@@ -44,7 +50,7 @@ func UploadHandler(vs *store.VectorStore) gin.HandlerFunc {
 			return
 		}
 
-		// 4. 保存到数据库
+		// 5. 保存到数据库
 		database.CreateDocument(
 			avator.Filename,
 			avator.Size,
