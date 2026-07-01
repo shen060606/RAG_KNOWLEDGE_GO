@@ -10,7 +10,7 @@
 - **Redis 缓存**：Cache-Aside 模式缓存 Embedding 向量，降级策略保障服务高可用
 - **多轮对话记忆**：Session 级别对话历史，LLM 感知上下文
 - **SSE 流式问答**：DeepSeek API 流式调用，前端逐字显示
-- **知识库面板**：左侧实时展示已导入文档（文件名 · chunk 数 · 导入时间）
+- **文档管理**：左侧面板展示已导入文档，支持一键删除（前端按钮 + 后端联动清理向量/数据库/文件）
 - **MySQL 持久化**：GORM + MySQL，文档元数据 + 对话历史落盘
 - **YAML 配置管理**：统一 config.yaml，消除硬编码
 - **请求耗时统计**：全链路 slog 耗时日志，快速定位性能瓶颈
@@ -39,12 +39,12 @@
                API Handler
         ┌─────────────┼─────────────┐
         │             │             │
-   UploadHandler  ChatStream   ScanFile
+   UploadHandler  ChatStream   ScanFile  DeleteHandler
         │             │             │
         ▼             ▼             ▼
    ┌─────────────────────────────────────┐
    │            RAG Service              │
-   │   ImportDoc() / AskThreeSteps()     │
+   │   ImportDoc() / DeleteDoc() / AskThreeSteps()  │
    └──────┬──────┬──────┬──────┬────────┘
           │      │      │      │
      Chunker  Embedder  Store   LLM
@@ -100,9 +100,10 @@ rag_knowledge/
     └── api/
         ├── router.go            # Gin 路由注册 + 静态文件
         └── handler/
-            ├── upload.go        # POST /api/upload     - 文件上传（含去重）
-            ├── chat.go          # GET  /api/chat/stream - SSE 流式问答（多轮 + 耗时统计）
-            └── scanfile.go      # GET  /api/file        - 已导入文件列表（查 MySQL）
+            ├── upload.go        # POST   /api/upload       - 文件上传（含去重）
+            ├── chat.go          # GET    /api/chat/stream  - SSE 流式问答（多轮 + 耗时统计）
+            ├── scanfile.go      # GET    /api/file         - 已导入文件列表（查 MySQL）
+            └── delete.go        # DELETE /api/file/:name   - 删除文档（向量 + DB + 物理文件）
 ```
 
 ## 🔄 数据流
@@ -120,6 +121,12 @@ rag_knowledge/
   拖拽文件 → 保存到 uploads/ → DocumentExists 去重检查
   → 提取纯文本 → 切分 Chunk → 文件名 hash 生成全局唯一 ID
   → Embedding（走 Redis 缓存）→ 存入 Qdrant/MemoryStore → MySQL 记录元数据
+
+文档删除流程：
+  前端点击删除按钮 → 确认弹窗 → DELETE /api/file/:filename
+  → 查 MySQL 拿 ChunkCount → 文件名 hash 反算所有 chunk ID
+  → Store.Delete(chunkIDs) 删向量 → MySQL 删记录 → os.Remove 删物理文件
+  → 前端局部移除 DOM（无需刷新页面）
 ```
 
 ## 🔌 API 接口
@@ -130,6 +137,7 @@ rag_knowledge/
 | `POST` | `/api/upload` | 文件上传 | multipart form `file` |
 | `GET` | `/api/chat/stream` | SSE 流式问答 | `q` (问题), `session_id` (会话ID) |
 | `GET` | `/api/file` | 已导入文件列表 | - |
+| `DELETE` | `/api/file/:filename` | 删除文档 | 路径参数 `:filename` |
 | `GET` | `/static/*filepath` | 静态资源 | - |
 
 ## 🛠 核心设计
@@ -137,7 +145,7 @@ rag_knowledge/
 ### Store 接口抽象
 
 ```
-Store 接口：Add() + Search()
+Store 接口：Add() + Search() + Delete()
     ├── MemoryStore   — 开发阶段，内存切片，遍历 + 余弦相似度
     └── QdrantStore   — 生产环境，REST API，HNSW 索引检索
 
@@ -180,7 +188,21 @@ chunkID = 文档序号 × 100000 + chunk 本地编号
 不同文档的 chunk ID 永不冲突
 ```
 
-**设计理由**：Qdrant 用 point ID 做向量主键，不同文档的 chunk 从 0 开始编号会导致相互覆盖。用文件名 hash 生成全局唯一 ID 彻底解决冲突。
+**设计理由**：Qdrant 用 point ID 做向量主键，不同文档的 chunk 从 0 开始编号会导致相互覆盖。用文件名 hash 生成全局唯一 ID 彻底解决冲突。同时删除文档时，根据文件名反算 chunk ID 范围即可精确清理，无需额外存储映射关系。
+
+### 文档删除（前后端联动）
+
+```
+用户点击 ✕ → confirm 确认 → fetch DELETE /api/file/:filename
+  → handler: Param 取文件名 → GetDocumentByFilename 查 ChunkCount
+  → DocChunkBase(filename) 反算 docBase → 生成 [docBase+0, ..., docBase+N]
+  → Store.Delete(chunkIDs) 删向量 → DeleteDocument(filename) 删 DB → os.Remove 删文件
+  → 前端 domElement.remove() 局部刷新
+```
+
+**三处数据，一个不漏**：向量存储（Qdrant/MemoryStore）、MySQL 元数据、uploads/ 物理文件，三处全部清理。删除顺序先向量后 DB 最后文件——向量最贵优先清，文件最便宜留到最后，即使文件删除失败也不影响系统正确性（前端不再展示、检索不再命中）。
+
+**设计理由**：向量库和 MySQL 是独立存储，只删 DB 记录会导致 Qdrant 中残留"幽灵 chunk"，用户提问仍会检索到已删除文档的内容。必须联动删除。
 
 ## 🚀 快速开始
 
@@ -240,12 +262,12 @@ go run .
 |------|------|---------|
 | `chunker` | 文本切分 | `SplitText(text, chunkSize, overlap)` |
 | `embedder` | 向量化 + Redis 缓存 | `GetEmbedding()`, `EmbedWithCache()`, `InitRedis()` |
-| `store` | 向量存储接口 + 双实现 | `Store interface`, `MemoryStore`, `QdrantStore` |
+| `store` | 向量存储接口 + 双实现 | `Store interface`（含 `Delete`），`MemoryStore`，`QdrantStore` |
 | `llm` | DeepSeek API 调用 | `CallDeepseekAPI()`, `CallDeepseekAPIHistory()`, `dorequest()` |
-| `rag` | RAG 核心流程 | `ImportDoc()`, `Ask()`, `AskThreeSteps()` |
+| `rag` | RAG 核心流程 | `ImportDoc()`, `DeleteDoc()`, `DocChunkBase()`, `Ask()`, `AskThreeSteps()` |
 | `uploads` | 文件解析 | `DetectType()`, `ExtractText()`, `ProcessFile()` |
-| `database` | MySQL 持久化 | `InitDB()`, `CreateDocument()`, `SaveMessage()`, `DocumentExists()` |
-| `api` | HTTP 层 + 路由 | `Setup()`, `UploadHandler()`, `ChatStream()`, `ScanFile()` |
+| `database` | MySQL 持久化 | `InitDB()`, `CreateDocument()`, `GetDocumentByFilename()`, `DeleteDocument()`, `SaveMessage()`, `DocumentExists()` |
+| `api` | HTTP 层 + 路由 | `Setup()`, `UploadHandler()`, `ChatStream()`, `ScanFile()`, `DeleteHandler()` |
 | `config` | 配置管理 | `Load()`, `Cfg` 全局实例 |
 
 ## 🛠 技术选型
@@ -269,7 +291,7 @@ go run .
 - **V1** ✅ 核心 RAG 链路（命令行版）
 - **V2** ✅ Gin Web 服务 + 分栏前端 + SSE 流式问答 + 拖拽上传
 - **V3** ✅ 多轮对话记忆 + MySQL 持久化 + Redis Embedding 缓存 + 配置管理
-- **V4** ✅ Store 接口抽象 + Qdrant 向量库 + 请求耗时统计 + 一键启动脚本
+- **V4** ✅ Store 接口抽象 + Qdrant 向量库 + 请求耗时统计 + 一键启动脚本 + 文档删除（前后端联动）
 - **V5** 🚧 Eino Workflow 编排 + 混合检索（BM25 + 向量）+ Rerank
 
 ## 📄 License
