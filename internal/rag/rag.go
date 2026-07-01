@@ -68,7 +68,7 @@ func Ask(vs store.Store, question string) (string, error) {
 	return answer, nil
 }
 
-// ask的前三步给抽象出来
+// ask的前三步给抽象出来->使用eino抽象出来
 func AskThreeSteps(vs store.Store, question string) string {
 	//1 问题向量化
 	queryVec, err := embedder.EmbedderCache(question)
