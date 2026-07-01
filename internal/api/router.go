@@ -22,5 +22,7 @@ func Setup(vs store.Store) *gin.Engine {
 	r.GET("/api/chat/stream", handler.ChatStream(vs))
 
 	r.GET("/api/file", handler.ScanFile(vs))
+
+	r.DELETE("/api/file/:filename", handler.DeleteHandler(vs))
 	return r
 }

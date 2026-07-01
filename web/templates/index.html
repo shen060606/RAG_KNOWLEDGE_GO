@@ -110,10 +110,49 @@
 
             const div = document.createElement('div');
             div.className = 'file-item';
-            div.textContent = '📎 ' + file.filename
+
+            const span = document.createElement('span');
+            span.className = 'file-item-text';
+            span.textContent = '📎 ' + file.filename
                 + ' · ' + (file.chunk_count || 0) + ' chunks'
                 + ' · ' + (file.created_at || '');
+
+            const btn = document.createElement('button');
+            btn.className = 'btn-delete-file';
+            btn.textContent = '✕';
+            btn.title = '删除此文档';
+            btn.onclick = function () {
+                deleteFile(file.filename, div);
+            };
+
+            div.appendChild(span);
+            div.appendChild(btn);
             container.prepend(div);
+        }
+
+        function deleteFile(filename, domElement) {
+            if (!confirm('确定要删除 "' + filename + '" 吗？此操作不可撤销。')) {
+                return;
+            }
+
+            fetch('/api/file/' + encodeURIComponent(filename), { method: 'DELETE' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.ok) {
+                        domElement.remove();
+
+                        const container = document.getElementById('file-items');
+                        if (container.children.length === 0) {
+                            const empty = document.createElement('div');
+                            empty.className = 'file-item-empty';
+                            empty.textContent = '暂无文档，请上传';
+                            container.appendChild(empty);
+                        }
+                    } else {
+                        alert('删除失败: ' + (data.msg || '未知错误'));
+                    }
+                })
+                .catch(err => alert('删除失败: ' + err));
         }
 
         // ===== 聊天 =====

@@ -129,3 +129,27 @@ func (q *QdrantStore) Search(queryVec []float64, topK int) ([]VectorChunk, error
 
 	return chunks, nil
 }
+
+func (q *QdrantStore) Delete(chunkIDs []int) error {
+	body, _ := json.Marshal(map[string]any{
+		"points": chunkIDs,
+	})
+
+	req, _ := http.NewRequest("POST",
+		q.baseURL+"/collections/"+q.collection+"/points/delete",
+		bytes.NewBuffer(body))
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != 200 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("删除向量失败: HTTP %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	return nil
+}

@@ -98,3 +98,16 @@ func AskThreeSteps(vs store.Store, question string) string {
 
 	return prompt
 }
+
+func DeleteDoc(vs store.Store, filename string, chunkcount int) error {
+	hash := md5.Sum([]byte(filename))
+	docBase := int(binary.BigEndian.Uint32(hash[:4])) * 100000
+
+	//生成该文档 的所有chunkid
+	ids := make([]int, chunkcount)
+	for i := 0; i < chunkcount; i++ {
+		ids[i] = docBase + i
+	}
+
+	return vs.Delete(ids) //删除该文档的所有chunk
+}

@@ -83,3 +83,17 @@ func DocumentExists(filename string) bool {
 	DB.Model(&Document{}).Where("filename = ? AND status = ?", filename, "ready").Count(&count)
 	return count > 0
 }
+
+// GetDocumentByFilename 根据文件名查一条文档记录
+func GetDocumentByFilename(filename string) (*Document, error) {
+	var doc Document
+	err := DB.Where("filename = ? AND status = ?", filename, "ready").First(&doc).Error
+	if err != nil {
+		return nil, err
+	}
+	return &doc, nil
+}
+
+func DeleteDocument(filename string) error {
+	return DB.Where("filename = ?", filename).Delete(&Document{}).Error
+}

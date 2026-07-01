@@ -15,6 +15,7 @@ type VectorChunk struct {
 type Store interface {
 	Add(chunkID int, text string, vector []float64) error
 	Search(queryVec []float64, topK int) ([]VectorChunk, error)
+	Delete(chunkIDs []int) error
 }
 
 // CosineSimilarity 计算两个向量的余弦相似度
