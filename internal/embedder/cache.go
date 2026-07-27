@@ -58,7 +58,7 @@ func EmbedderCache(text string) ([]float64, error) {
 	}
 
 	if err != redis.Nil {
-		// Redis 真的出错了（不是"key 不存在"），打日志但继续走 API
+		// Redis 出错了（不是"key 不存在"），打日志但继续走 API
 		// 降级：不因为 Redis 挂了导致整个功能不能用\
 		slog.Warn("Redis 读取失败，降级到直接调用api", "err", err)
 	}

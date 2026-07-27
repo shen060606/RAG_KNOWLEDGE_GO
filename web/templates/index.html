@@ -65,7 +65,17 @@
 
         // ===== 文件上传 =====
 
+        function isAllowedUploadFile(file) {
+            const name = file.name.toLowerCase();
+            return name.endsWith('.txt') || name.endsWith('.md') || name.endsWith('.pdf');
+        }
+
         function uploadFile(file) {
+            if (!isAllowedUploadFile(file)) {
+                alert('只支持 txt / md / pdf 文件');
+                return;
+            }
+
             const formData = new FormData();
             formData.append('file', file);
 

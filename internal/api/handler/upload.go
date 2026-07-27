@@ -18,18 +18,26 @@ func UploadHandler(vs store.Store) gin.HandlerFunc {
 			})
 			return
 		}
-		// 2. 存到 uploads/
+
+		//1.5 检查文件类型
+		if !uploads.IsAllowedFile(avator.Filename) {
+			c.JSON(400, gin.H{"msg": "只支持pdf,txt,md 类型"})
+			return
+		}
+
+		// 2. 检查重复
+		if database.DocumentExists(avator.Filename) {
+			c.JSON(409, gin.H{"msg": "文件已存在，请勿重复上传"})
+			return
+		}
+
+		// 3. 存到 uploads/
 		dst := "./uploads/" + avator.Filename
 
 		if err := c.SaveUploadedFile(avator, dst); err != nil {
 			c.JSON(400, gin.H{
 				"msg": "保存文件失败",
 			})
-			return
-		}
-		// 3. 检查重复
-		if database.DocumentExists(avator.Filename) {
-			c.JSON(409, gin.H{"msg": "文件已存在，请勿重复上传"})
 			return
 		}
 
