@@ -71,13 +71,8 @@ func Ask(vs store.Store, userID uint, question string) (string, error) {
 	return answer, nil
 }
 
-<<<<<<< Updated upstream
-// ask的前三步给抽象出来
-func AskThreeSteps(vs store.Store, question string) string {
-=======
 // ask的前三步给抽象出来->使用eino抽象出来
 func AskThreeSteps(vs store.Store, userID uint, question string) string {
->>>>>>> Stashed changes
 	//1 问题向量化
 	queryVec, err := embedder.EmbedderCache(question)
 	if err != nil {
@@ -106,8 +101,6 @@ func AskThreeSteps(vs store.Store, userID uint, question string) string {
 
 	return prompt
 }
-<<<<<<< Updated upstream
-=======
 
 func DeleteDoc(vs store.Store, userID uint, filename string, chunkcount int) error {
 	docKey := fmt.Sprintf("%d/%s", userID, filename)
@@ -122,4 +115,3 @@ func DeleteDoc(vs store.Store, userID uint, filename string, chunkcount int) err
 
 	return vs.Delete(ids) //删除该文档的所有chunk
 }
->>>>>>> Stashed changes

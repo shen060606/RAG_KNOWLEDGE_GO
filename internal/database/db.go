@@ -85,8 +85,6 @@ func DocumentExists(userID uint, filename string) bool {
 	DB.Model(&Document{}).Where("user_id=? and filename = ? AND status = ?", userID, filename, "ready").Count(&count)
 	return count > 0
 }
-<<<<<<< Updated upstream
-=======
 
 // GetDocumentByFilename 根据文件名查一条文档记录
 func GetDocumentByFilename(userID uint, filename string) (*Document, error) {
@@ -176,4 +174,3 @@ func DeleteSession(sessionID string) error {
 func DeleteExpiredSessions() error {
 	return DB.Where("expires_at <= ?", time.Now()).Delete(&Session{}).Error
 }
->>>>>>> Stashed changes

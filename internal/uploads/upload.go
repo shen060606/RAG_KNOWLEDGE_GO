@@ -18,6 +18,17 @@ const (
 	TypePDF                     //3
 )
 
+// isallowfile 检查上传文件是否允许上传
+func IsAllowedFile(filename string) bool {
+	ext := strings.ToLower(filepath.Ext(filename))
+	switch ext {
+	case ".txt", ".md", ".pdf":
+		return true
+	default:
+		return false
+	}
+}
+
 // DectectType 通过文件后缀检测文件类型
 func DetectType(path string) FileType {
 	ext := strings.ToLower(filepath.Ext(path)) //提取后缀名并且转换为小写

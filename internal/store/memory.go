@@ -62,3 +62,22 @@ func (vs *MemoryStore) Search(userID uint, queryVec []float64, topK int) ([]Vect
 
 	return topChunks, nil
 }
+
+func (vs *MemoryStore) Delete(chunkIDs []int) error {
+	//把要删的id放进map里面快速查找
+	delSet := make(map[int]bool, len(chunkIDs))
+	for _, id := range chunkIDs {
+		delSet[id] = true
+	}
+
+	//过滤要删除的chunk
+	newChunks := make([]VectorChunk, 0, len(vs.Chunks))
+	for _, c := range vs.Chunks {
+		if !delSet[c.ID] {
+			newChunks = append(newChunks, c)
+		}
+	}
+
+	vs.Chunks = newChunks
+	return nil
+}

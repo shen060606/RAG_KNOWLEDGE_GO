@@ -26,10 +26,6 @@ func UploadHandler(vs store.Store) gin.HandlerFunc {
 			})
 			return
 		}
-<<<<<<< Updated upstream
-		// 2. 存到 uploads/
-		dst := "./uploads/" + avator.Filename
-=======
 
 		//1.5 检查文件类型
 		if !uploads.IsAllowedFile(avator.Filename) {
@@ -52,17 +48,11 @@ func UploadHandler(vs store.Store) gin.HandlerFunc {
 
 		// 3. 存到 uploads/里面的各自的user目录
 		dst := filepath.Join(userUploadDir, avator.Filename)
->>>>>>> Stashed changes
 
 		if err := c.SaveUploadedFile(avator, dst); err != nil {
 			c.JSON(400, gin.H{
 				"msg": "保存文件失败",
 			})
-			return
-		}
-		// 3. 检查重复
-		if database.DocumentExists(avator.Filename) {
-			c.JSON(409, gin.H{"msg": "文件已存在，请勿重复上传"})
 			return
 		}
 

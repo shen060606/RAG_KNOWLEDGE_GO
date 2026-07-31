@@ -142,8 +142,6 @@ func (q *QdrantStore) Search(userID uint, queryVec []float64, topK int) ([]Vecto
 
 	return chunks, nil
 }
-<<<<<<< Updated upstream
-=======
 
 func (q *QdrantStore) Delete(chunkIDs []int) error {
 	body, _ := json.Marshal(map[string]any{
@@ -157,7 +155,6 @@ func (q *QdrantStore) Delete(chunkIDs []int) error {
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := q.httpClient.Do(req)
-
 	if err != nil {
 		return err
 	}
@@ -170,4 +167,3 @@ func (q *QdrantStore) Delete(chunkIDs []int) error {
 
 	return nil
 }
->>>>>>> Stashed changes

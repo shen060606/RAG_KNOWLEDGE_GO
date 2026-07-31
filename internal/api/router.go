@@ -24,9 +24,6 @@ func Setup(vs store.Store) *gin.Engine {
 	r.POST("/api/register", handler.Register)
 	r.POST("/api/login", handler.Login)
 
-<<<<<<< Updated upstream
-	r.GET("/api/file", handler.ScanFile(vs))
-=======
 	//需要登录之后才能进入的界面，使用路由组来使用中间件
 	auth := r.Group("/api")
 	auth.Use(handler.AuthMiddleware())
@@ -40,6 +37,5 @@ func Setup(vs store.Store) *gin.Engine {
 	auth.DELETE("/file/:filename", handler.DeleteHandler(vs))
 
 	auth.POST("/logout", handler.Logout)
->>>>>>> Stashed changes
 	return r
 }

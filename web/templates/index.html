@@ -66,7 +66,17 @@
 
         // ===== 文件上传 =====
 
+        function isAllowedUploadFile(file) {
+            const name = file.name.toLowerCase();
+            return name.endsWith('.txt') || name.endsWith('.md') || name.endsWith('.pdf');
+        }
+
         function uploadFile(file) {
+            if (!isAllowedUploadFile(file)) {
+                alert('只支持 txt / md / pdf 文件');
+                return;
+            }
+
             const formData = new FormData();
             formData.append('file', file);
 
@@ -113,14 +123,26 @@
 
             const div = document.createElement('div');
             div.className = 'file-item';
-            div.textContent = '📎 ' + file.filename
+
+            const span = document.createElement('span');
+            span.className = 'file-item-text';
+            span.textContent = '📎 ' + file.filename
                 + ' · ' + (file.chunk_count || 0) + ' chunks'
                 + ' · ' + (file.created_at || '');
+
+            const btn = document.createElement('button');
+            btn.className = 'btn-delete-file';
+            btn.textContent = '✕';
+            btn.title = '删除此文档';
+            btn.onclick = function () {
+                deleteFile(file.filename, div);
+            };
+
+            div.appendChild(span);
+            div.appendChild(btn);
             container.prepend(div);
         }
 
-<<<<<<< Updated upstream
-=======
         function deleteFile(filename, domElement) {
             if (!confirm('确定要删除 "' + filename + '" 吗？此操作不可撤销。')) {
                 return;
@@ -148,7 +170,6 @@
                 .catch(err => alert('删除失败: ' + err));
         }
 
->>>>>>> Stashed changes
         // ===== 聊天 =====
 
         function sendMessage() {

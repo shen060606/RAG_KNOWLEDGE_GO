@@ -14,14 +14,9 @@ type VectorChunk struct {
 
 // 定义接口，方便以后改向量数据库等
 type Store interface {
-<<<<<<< Updated upstream
-	Add(chunkID int, text string, vector []float64) error
-	Search(queryVec []float64, topK int) ([]VectorChunk, error)
-=======
 	Add(userID uint, chunkID int, text string, vector []float64) error
 	Search(userID uint, queryVec []float64, topK int) ([]VectorChunk, error)
 	Delete(chunkIDs []int) error
->>>>>>> Stashed changes
 }
 
 // CosineSimilarity 计算两个向量的余弦相似度
