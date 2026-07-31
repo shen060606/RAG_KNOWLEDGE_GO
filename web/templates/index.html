@@ -38,6 +38,7 @@
     <main id="chat-area">
         <div class="chat-header">
             <h1>🔍 RAG 知识库</h1>
+            <button onclick="logout()" class="btn-logout">退出登录</button>
         </div>
 
         <!-- 消息列表 -->
@@ -69,9 +70,11 @@
             const formData = new FormData();
             formData.append('file', file);
 
-            fetch('/api/upload', { method: 'POST', body: formData })
-                .then(res => res.json())
+            fetch('/api/upload', { method: 'POST', body: formData, credentials: 'same-origin' })
+                .then(handleAuthResponse)
                 .then(data => {
+                    if (!data) return;
+
                     if (data.ok) {
                         // 上传成功后直接加到列表，填充已知信息
                         addFileItem({
@@ -116,6 +119,36 @@
             container.prepend(div);
         }
 
+<<<<<<< Updated upstream
+=======
+        function deleteFile(filename, domElement) {
+            if (!confirm('确定要删除 "' + filename + '" 吗？此操作不可撤销。')) {
+                return;
+            }
+
+            fetch('/api/file/' + encodeURIComponent(filename), { method: 'DELETE', credentials: 'same-origin' })
+                .then(handleAuthResponse)
+                .then(data => {
+                    if (!data) return;
+
+                    if (data.ok) {
+                        domElement.remove();
+
+                        const container = document.getElementById('file-items');
+                        if (container.children.length === 0) {
+                            const empty = document.createElement('div');
+                            empty.className = 'file-item-empty';
+                            empty.textContent = '暂无文档，请上传';
+                            container.appendChild(empty);
+                        }
+                    } else {
+                        alert('删除失败: ' + (data.msg || '未知错误'));
+                    }
+                })
+                .catch(err => alert('删除失败: ' + err));
+        }
+
+>>>>>>> Stashed changes
         // ===== 聊天 =====
 
         function sendMessage() {
@@ -169,11 +202,31 @@
             return div;
         }
 
+        function handleAuthResponse(res) {
+            if (res.status === 401) {
+                window.location.href = '/login';
+                return null;
+            }
+
+            return res.json();
+        }
+
+        function logout() {
+            fetch('/api/logout', {
+                method: 'POST',
+                credentials: 'same-origin',
+            }).finally(function () {
+                window.location.href = '/login';
+            });
+        }
+
         // ===== 页面加载时读取已有文件 =====
         window.addEventListener('DOMContentLoaded', function () {
-            fetch('/api/file')
-                .then(res => res.json())
+            fetch('/api/file', { credentials: 'same-origin' })
+                .then(handleAuthResponse)
                 .then(data => {
+                    if (!data) return;
+
                     if (data.files && data.files.length > 0) {
                         for (const f of data.files) {
                             addFileItem(f);

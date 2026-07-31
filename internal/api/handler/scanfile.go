@@ -8,7 +8,11 @@ import (
 
 func ScanFile(vs store.Store) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		docs, err := database.ListDocuments()
+		userID, ok := getCurrentUserID(c)
+		if !ok {
+			return
+		}
+		docs, err := database.ListDocuments(userID)
 		if err != nil {
 			c.JSON(500, gin.H{
 				"msg": "查询文档目录失败",

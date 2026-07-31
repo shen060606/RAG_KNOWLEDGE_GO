@@ -124,11 +124,28 @@ body {
     padding: 16px 24px;
     background: #fff;
     border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
 .chat-header h1 {
     font-size: 20px;
     font-weight: 600;
+}
+
+.btn-logout {
+    border: none;
+    background: #f3f4f6;
+    color: #555;
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.btn-logout:hover {
+    background: #e5e7eb;
 }
 
 /* 消息区域 */

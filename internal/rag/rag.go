@@ -15,9 +15,10 @@ import (
 )
 
 // Importdoc 导入文档。filename 用于生成全局唯一的 chunk ID，防止不同文档的 chunk 互相覆盖。
-func ImportDoc(vs store.Store, filename string, content string) (int, error) {
+func ImportDoc(vs store.Store, userID uint, filename string, content string) (int, error) {
+	docKey := fmt.Sprintf("%d/%s", userID, filename)
 	// 用文件名 hash 的前 4 字节作为文档编号，乘 100000 保证不同文档的 chunk ID 不冲突
-	hash := md5.Sum([]byte(filename))
+	hash := md5.Sum([]byte(docKey))
 	docBase := int(binary.BigEndian.Uint32(hash[:4])) * 100000
 
 	chunks := chunker.SplitText(content, config.Cfg.Chunk.Size, config.Cfg.Chunk.Overlap)
@@ -26,14 +27,16 @@ func ImportDoc(vs store.Store, filename string, content string) (int, error) {
 		if err != nil {
 			return len(chunks), err
 		}
-
-		vs.Add(docBase+c.ID, c.Text, vec) // 全局唯一 ID
+		// 全局唯一 ID
+		if err := vs.Add(userID, docBase+c.ID, c.Text, vec); err != nil {
+			return len(chunks), err
+		}
 	}
 	return len(chunks), nil
 }
 
 // ask 提问
-func Ask(vs store.Store, question string) (string, error) {
+func Ask(vs store.Store, userID uint, question string) (string, error) {
 	// 	//1 问题向量化
 	// 	queryVec, err := embedder.GetEmbedding(question)
 	// 	if err != nil {
@@ -58,7 +61,7 @@ func Ask(vs store.Store, question string) (string, error) {
 
 	// 请用中文回答。`, contextBuilder.String(), question)
 
-	prompt := AskThreeSteps(vs, question)
+	prompt := AskThreeSteps(vs, userID, question)
 
 	//5调用llm
 	answer, err := llm.CallDeepseekAPI(prompt, nil)
@@ -68,15 +71,20 @@ func Ask(vs store.Store, question string) (string, error) {
 	return answer, nil
 }
 
+<<<<<<< Updated upstream
 // ask的前三步给抽象出来
 func AskThreeSteps(vs store.Store, question string) string {
+=======
+// ask的前三步给抽象出来->使用eino抽象出来
+func AskThreeSteps(vs store.Store, userID uint, question string) string {
+>>>>>>> Stashed changes
 	//1 问题向量化
 	queryVec, err := embedder.EmbedderCache(question)
 	if err != nil {
 		return ""
 	}
 	//2 检索topk
-	results, err := vs.Search(queryVec, config.Cfg.Search.TopK)
+	results, err := vs.Search(userID, queryVec, config.Cfg.Search.TopK)
 	if err != nil {
 		slog.Error(err.Error())
 		return ""
@@ -89,7 +97,7 @@ func AskThreeSteps(vs store.Store, question string) string {
 	}
 
 	//4 构造prompt
-	prompt := fmt.Sprintf(`你是一个知识助手。请根据以下参考资料回答用户问题。如果资料中有相关信息，优先使用；如果资料中没有，可以基于你自己的知识补充。
+	prompt := fmt.Sprintf(`你是一个知识助手。请根据以下参考资料回答用户问题。如果资料中有相关信息，优先使用；如果资料中没有，就说文档库中没有相关内容。
 
 参考资料：
 %s
@@ -98,3 +106,20 @@ func AskThreeSteps(vs store.Store, question string) string {
 
 	return prompt
 }
+<<<<<<< Updated upstream
+=======
+
+func DeleteDoc(vs store.Store, userID uint, filename string, chunkcount int) error {
+	docKey := fmt.Sprintf("%d/%s", userID, filename)
+	hash := md5.Sum([]byte(docKey))
+	docBase := int(binary.BigEndian.Uint32(hash[:4])) * 100000
+
+	//生成该文档 的所有chunkid
+	ids := make([]int, chunkcount)
+	for i := 0; i < chunkcount; i++ {
+		ids[i] = docBase + i
+	}
+
+	return vs.Delete(ids) //删除该文档的所有chunk
+}
+>>>>>>> Stashed changes

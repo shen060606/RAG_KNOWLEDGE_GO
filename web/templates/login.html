@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 · RAG 知识库</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            color: #e5f3ff;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(61, 183, 255, 0.2), transparent 30%),
+                radial-gradient(circle at 80% 10%, rgba(142, 92, 255, 0.18), transparent 28%),
+                linear-gradient(135deg, #08111f 0%, #101828 52%, #07101c 100%);
+        }
+
+        .auth-shell {
+            width: min(920px, calc(100vw - 32px));
+            min-height: 560px;
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            overflow: hidden;
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            border-radius: 18px;
+            background: rgba(15, 23, 42, 0.72);
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+            backdrop-filter: blur(18px);
+        }
+
+        .brand-panel {
+            padding: 48px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            border-right: 1px solid rgba(148, 163, 184, 0.18);
+            background:
+                linear-gradient(160deg, rgba(34, 211, 238, 0.12), transparent 42%),
+                linear-gradient(0deg, rgba(15, 23, 42, 0.42), rgba(15, 23, 42, 0.42));
+        }
+
+        .brand-mark {
+            width: 42px;
+            height: 42px;
+            display: grid;
+            place-items: center;
+            border-radius: 12px;
+            color: #08111f;
+            font-weight: 800;
+            background: linear-gradient(135deg, #67e8f9, #a78bfa);
+        }
+
+        .brand-copy h1 {
+            margin-bottom: 16px;
+            font-size: 40px;
+            line-height: 1.08;
+            letter-spacing: 0;
+        }
+
+        .brand-copy p {
+            max-width: 420px;
+            color: #9fb2ca;
+            font-size: 15px;
+            line-height: 1.8;
+        }
+
+        .status-line {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            color: #8ea4c0;
+            font-size: 13px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22d3ee;
+            box-shadow: 0 0 18px rgba(34, 211, 238, 0.9);
+        }
+
+        .auth-panel {
+            padding: 40px 34px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            background: rgba(2, 6, 23, 0.36);
+        }
+
+        .tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-bottom: 28px;
+            padding: 5px;
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.16);
+        }
+
+        .tab {
+            height: 38px;
+            border: 0;
+            border-radius: 9px;
+            cursor: pointer;
+            color: #94a3b8;
+            background: transparent;
+            font-size: 14px;
+        }
+
+        .tab.active {
+            color: #08111f;
+            background: #e0f2fe;
+        }
+
+        .form-title {
+            margin-bottom: 8px;
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .form-subtitle {
+            margin-bottom: 26px;
+            color: #94a3b8;
+            font-size: 14px;
+        }
+
+        .field {
+            margin-bottom: 16px;
+        }
+
+        .field label {
+            display: block;
+            margin-bottom: 8px;
+            color: #b6c5d8;
+            font-size: 13px;
+        }
+
+        .field input {
+            width: 100%;
+            height: 44px;
+            padding: 0 14px;
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            border-radius: 10px;
+            outline: none;
+            color: #e5f3ff;
+            background: rgba(15, 23, 42, 0.72);
+            font-size: 14px;
+        }
+
+        .field input:focus {
+            border-color: #38bdf8;
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14);
+        }
+
+        .submit-btn {
+            width: 100%;
+            height: 46px;
+            margin-top: 6px;
+            border: 0;
+            border-radius: 10px;
+            cursor: pointer;
+            color: #06111f;
+            background: linear-gradient(135deg, #67e8f9, #a78bfa);
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        .submit-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.62;
+        }
+
+        .message {
+            min-height: 22px;
+            margin-top: 14px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .message.error {
+            color: #fca5a5;
+        }
+
+        .message.success {
+            color: #86efac;
+        }
+
+        @media (max-width: 760px) {
+            .auth-shell {
+                grid-template-columns: 1fr;
+            }
+
+            .brand-panel {
+                min-height: 250px;
+                padding: 32px;
+                border-right: 0;
+                border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+            }
+
+            .brand-copy h1 {
+                font-size: 32px;
+            }
+
+            .auth-panel {
+                padding: 32px 24px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <section class="auth-shell">
+        <div class="brand-panel">
+            <div class="brand-mark">R</div>
+            <div class="brand-copy">
+                <h1>RAG 知识库</h1>
+                <p>登录后上传文档、构建自己的知识库，并让助手只基于你的资料进行回答。</p>
+            </div>
+            <div class="status-line">
+                <span class="status-dot"></span>
+                <span>Session Ready</span>
+            </div>
+        </div>
+
+        <div class="auth-panel">
+            <div class="tabs">
+                <button class="tab active" id="login-tab" type="button" onclick="setMode('login')">登录</button>
+                <button class="tab" id="register-tab" type="button" onclick="setMode('register')">注册</button>
+            </div>
+
+            <h2 class="form-title" id="form-title">欢迎回来</h2>
+            <p class="form-subtitle" id="form-subtitle">登录后继续使用你的知识库。</p>
+
+            <form id="auth-form">
+                <div class="field">
+                    <label for="username">用户名</label>
+                    <input id="username" name="username" autocomplete="username" minlength="3" maxlength="50" required>
+                </div>
+
+                <div class="field">
+                    <label for="password">密码</label>
+                    <input id="password" name="password" type="password" autocomplete="current-password" minlength="8"
+                        maxlength="72" required>
+                </div>
+
+                <button class="submit-btn" id="submit-btn" type="submit">登录</button>
+                <div class="message" id="message"></div>
+            </form>
+        </div>
+    </section>
+
+    <script>
+        let mode = 'login';
+
+        function setMode(nextMode) {
+            mode = nextMode;
+            const isLogin = mode === 'login';
+
+            document.getElementById('login-tab').classList.toggle('active', isLogin);
+            document.getElementById('register-tab').classList.toggle('active', !isLogin);
+            document.getElementById('form-title').textContent = isLogin ? '欢迎回来' : '创建账号';
+            document.getElementById('form-subtitle').textContent = isLogin ? '登录后继续使用你的知识库。' : '注册后即可开始上传文档。';
+            document.getElementById('submit-btn').textContent = isLogin ? '登录' : '注册';
+            showMessage('', '');
+        }
+
+        function showMessage(text, type) {
+            const message = document.getElementById('message');
+            message.textContent = text;
+            message.className = 'message' + (type ? ' ' + type : '');
+        }
+
+        document.getElementById('auth-form').addEventListener('submit', async function (event) {
+            event.preventDefault();
+
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const submitBtn = document.getElementById('submit-btn');
+
+            submitBtn.disabled = true;
+            showMessage(mode === 'login' ? '正在登录...' : '正在注册...', '');
+
+            try {
+                const res = await fetch('/api/' + mode, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await res.json();
+                if (!res.ok || !data.ok) {
+                    showMessage(data.msg || '请求失败，请稍后再试', 'error');
+                    return;
+                }
+
+                if (mode === 'register') {
+                    showMessage('注册成功，请登录。', 'success');
+                    setMode('login');
+                    document.getElementById('password').value = '';
+                    document.getElementById('password').focus();
+                    return;
+                }
+
+                window.location.href = '/';
+            } catch (err) {
+                showMessage('网络异常：' + err.message, 'error');
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+
+</html>

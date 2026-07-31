@@ -17,10 +17,29 @@ func Setup(vs store.Store) *gin.Engine {
 		c.HTML(200, "index.html", nil)
 	})
 
-	r.POST("/api/upload", handler.UploadHandler(vs))
+	r.GET("/login", func(c *gin.Context) {
+		c.HTML(200, "login.html", nil)
+	})
 
-	r.GET("/api/chat/stream", handler.ChatStream(vs))
+	r.POST("/api/register", handler.Register)
+	r.POST("/api/login", handler.Login)
 
+<<<<<<< Updated upstream
 	r.GET("/api/file", handler.ScanFile(vs))
+=======
+	//需要登录之后才能进入的界面，使用路由组来使用中间件
+	auth := r.Group("/api")
+	auth.Use(handler.AuthMiddleware())
+
+	auth.POST("/upload", handler.UploadHandler(vs))
+
+	auth.GET("/chat/stream", handler.ChatStream(vs))
+
+	auth.GET("/file", handler.ScanFile(vs))
+
+	auth.DELETE("/file/:filename", handler.DeleteHandler(vs))
+
+	auth.POST("/logout", handler.Logout)
+>>>>>>> Stashed changes
 	return r
 }

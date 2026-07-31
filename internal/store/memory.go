@@ -15,8 +15,9 @@ func NewMemoryStore() Store {
 }
 
 // Add 添加一个文档块到向量存储中
-func (vs *MemoryStore) Add(chunkID int, text string, vector []float64) error {
+func (vs *MemoryStore) Add(userID uint, chunkID int, text string, vector []float64) error {
 	vs.Chunks = append(vs.Chunks, VectorChunk{
+		UserID: userID,
 		ID:     chunkID,
 		Text:   text,
 		Vector: vector,
@@ -26,7 +27,7 @@ func (vs *MemoryStore) Add(chunkID int, text string, vector []float64) error {
 }
 
 // Search 检索Topk个最相似的文档块，TopK = 相似度最高的前 K 个结果
-func (vs *MemoryStore) Search(queryVec []float64, topK int) ([]VectorChunk, error) {
+func (vs *MemoryStore) Search(userID uint, queryVec []float64, topK int) ([]VectorChunk, error) {
 	//1 计算每个文档块与查询向量的余弦相似度
 	type scored struct {
 		chunk VectorChunk
@@ -35,6 +36,9 @@ func (vs *MemoryStore) Search(queryVec []float64, topK int) ([]VectorChunk, erro
 	var results []scored
 
 	for _, c := range vs.Chunks {
+		if c.UserID != userID {
+			continue
+		}
 		results = append(results, scored{
 			chunk: c,
 			score: CosineSimilarity(queryVec, c.Vector),

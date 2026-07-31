@@ -13,6 +13,11 @@ import (
 
 func ChatStream(vs store.Store) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		userID, ok := getCurrentUserID(c)
+		if !ok {
+			return
+		}
+
 		q := c.Query("q")
 		if q == "" {
 			c.JSON(400, gin.H{
@@ -27,7 +32,7 @@ func ChatStream(vs store.Store) gin.HandlerFunc {
 		}
 
 		//1 查看历史对话
-		history, _ := database.GetSessionHistory(sessionID)
+		history, _ := database.GetSessionHistory(userID, sessionID)
 		var messages []llm.Message
 		for _, h := range history {
 			messages = append(messages, llm.Message{Role: h.Role, Content: h.Content})
@@ -36,13 +41,13 @@ func ChatStream(vs store.Store) gin.HandlerFunc {
 
 		//2 rag检索，拼接prompt，记录耗时开始
 		startEmbed := time.Now()
-		prompt := rag.AskThreeSteps(vs, q)
+		prompt := rag.AskThreeSteps(vs, userID, q)
 		embedCost := time.Since(startEmbed) // AskThreeSteps 内部含 Embedding + Search
 
 		messages = append(messages, llm.Message{Role: "user", Content: prompt})
 
 		//3 存用户消息到数据库
-		database.SaveMessage(sessionID, "user", q)
+		database.SaveMessage(userID, sessionID, "user", q)
 
 		// 4. 设 SSE headers
 		c.Header("Content-Type", "text/event-stream")
@@ -75,7 +80,7 @@ func ChatStream(vs store.Store) gin.HandlerFunc {
 		)
 
 		//6 存ai回答到数据库
-		database.SaveMessage(sessionID, "assistant", answer)
+		database.SaveMessage(userID, sessionID, "assistant", answer)
 
 		// 7. 结束信号，向前端发送一条事件名为 done 的自定义事件，携带的数据为空字符串。
 		// 业务含义：通知前端，当前流式任务全部执行完成（比如 RAG 问答回答完毕、文件解析进度走完、扫描任务结束）。

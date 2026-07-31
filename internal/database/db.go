@@ -23,7 +23,7 @@ func InitDB(dsn string) error {
 	}
 
 	//自动建表（只创建不存在的表/加不存在的列）
-	if err := DB.AutoMigrate(&Document{}, &ChatHistory{}); err != nil {
+	if err := DB.AutoMigrate(&Document{}, &ChatHistory{}, &User{}, &Session{}); err != nil {
 		return err
 	}
 
@@ -34,8 +34,9 @@ func InitDB(dsn string) error {
 // ===== 文档相关 =====
 
 // CreateDocument 创建文档记录
-func CreateDocument(filename string, filesize int64, chunkcount int, status string) (*Document, error) {
+func CreateDocument(userID uint, filename string, filesize int64, chunkcount int, status string) (*Document, error) {
 	doc := &Document{
+		UserID:     userID,
 		Filename:   filename,
 		FileSize:   filesize,
 		ChunkCount: chunkcount,
@@ -50,17 +51,18 @@ func CreateDocument(filename string, filesize int64, chunkcount int, status stri
 }
 
 // ListDocuments 查询所有已就绪的文档
-func ListDocuments() ([]Document, error) {
+func ListDocuments(userID uint) ([]Document, error) {
 	var docs []Document
-	err := DB.Where("status = ?", "ready").Order("created_at DESC").Find(&docs).Error
+	err := DB.Where("user_id=? and status = ?", userID, "ready").Order("created_at DESC").Find(&docs).Error
 	return docs, err
 }
 
 // ===== 对话相关 =====
 
 // SaveMessage 保存一条对话记录
-func SaveMessage(sessionid, role, content string) error {
+func SaveMessage(userID uint, sessionid, role, content string) error {
 	msg := &ChatHistory{
+		UserID:    userID,
 		SessionID: sessionid,
 		Role:      role,
 		Content:   content,
@@ -71,15 +73,107 @@ func SaveMessage(sessionid, role, content string) error {
 }
 
 // GetSessionHistory 获取某个session会话历史记录
-func GetSessionHistory(sessionid string) ([]ChatHistory, error) {
+func GetSessionHistory(userID uint, sessionid string) ([]ChatHistory, error) {
 	var history []ChatHistory
-	err := DB.Where("session_id = ?", sessionid).Order("created_at DESC").Find(&history).Error
+	err := DB.Where("user_id = ? and session_id = ?", userID, sessionid).Order("created_at ASC").Find(&history).Error
 	return history, err
 }
 
 // DocumentExists 检查文件是否已导入
-func DocumentExists(filename string) bool {
+func DocumentExists(userID uint, filename string) bool {
 	var count int64
-	DB.Model(&Document{}).Where("filename = ? AND status = ?", filename, "ready").Count(&count)
+	DB.Model(&Document{}).Where("user_id=? and filename = ? AND status = ?", userID, filename, "ready").Count(&count)
 	return count > 0
 }
+<<<<<<< Updated upstream
+=======
+
+// GetDocumentByFilename 根据文件名查一条文档记录
+func GetDocumentByFilename(userID uint, filename string) (*Document, error) {
+	var doc Document
+	err := DB.Where("user_id=? and filename = ? AND status = ?", userID, filename, "ready").First(&doc).Error
+	if err != nil {
+		return nil, err
+	}
+	return &doc, nil
+}
+
+func DeleteDocument(userID uint, filename string) error {
+	return DB.Where("user_id=? and filename = ?", userID, filename).Delete(&Document{}).Error
+}
+
+// ===== 用户相关 =====
+
+// 注册接口会调用
+func CreateUser(username, passwordHash string) (*User, error) {
+	user := &User{
+		Username:     username,
+		PasswordHash: passwordHash,
+		CreatedAt:    time.Now(),
+	}
+
+	if err := DB.Create(user).Error; err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+// getuserbyusername登录时根据用户名查用户是否存在，然后比对密码哈希。
+func GetUserByUsername(username string) (*User, error) {
+	var user User
+	err := DB.Where("username=?", username).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// 通过session里面的user_id获得user
+func GetUserByID(userID uint) (*User, error) {
+	var user User
+
+	err := DB.Where("id = ?", userID).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+// ===== session相关 =====
+
+// 登录成功后生成一个随机 sessionID，存进数据库。
+func CreateSession(sessionID string, userID uint, expiresAt time.Time) error {
+	session := &Session{
+		ID:        sessionID,
+		UserID:    userID,
+		ExpiresAt: expiresAt,
+		CreatedAt: time.Now(),
+	}
+
+	return DB.Create(session).Error
+}
+
+// 这个函数后面鉴权中间件必须用。没有它，就没法根据 cookie 里的 session_id 判断用户是谁
+func GetSessionByID(sessionID string) (*Session, error) {
+	var session Session
+	err := DB.Where("id = ?", sessionID).First(&session).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &session, nil
+}
+
+// 退出登录时用
+func DeleteSession(sessionID string) error {
+	return DB.Where("id=?", sessionID).Delete(&Session{}).Error
+}
+
+// 可以后面定时清理用
+func DeleteExpiredSessions() error {
+	return DB.Where("expires_at <= ?", time.Now()).Delete(&Session{}).Error
+}
+>>>>>>> Stashed changes

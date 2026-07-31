@@ -61,14 +61,15 @@ func (q *QdrantStore) createCollection() error {
 }
 
 // Add 插入向量
-func (q *QdrantStore) Add(chunkID int, text string, vector []float64) error {
+func (q *QdrantStore) Add(userID uint, chunkID int, text string, vector []float64) error {
 	body, _ := json.Marshal(map[string]any{
 		"points": []map[string]any{
 			{
 				"id":     chunkID,
 				"vector": vector,
-				"payload": map[string]string{
-					"text": text,
+				"payload": map[string]any{
+					"text":    text,
+					"user_id": userID,
 				},
 			},
 		},
@@ -92,11 +93,22 @@ func (q *QdrantStore) Add(chunkID int, text string, vector []float64) error {
 }
 
 // Search 搜索向量
-func (q *QdrantStore) Search(queryVec []float64, topK int) ([]VectorChunk, error) {
+func (q *QdrantStore) Search(userID uint, queryVec []float64, topK int) ([]VectorChunk, error) {
+	//Qdrant 检索时只返回当前用户的点
 	body, _ := json.Marshal(map[string]any{
-		"vector":       queryVec,
-		"limit":        topK,
-		"with_payload": true,
+		"vector": queryVec, //用于相似度搜索的查询向量
+		"limit":  topK,     //最多返回多少条结果
+		"filter": map[string]any{ //附加过滤条件
+			"must": []map[string]any{ //里面的条件都必须满足
+				{
+					"key": "user_id", //要过滤的 payload 字段名
+					"match": map[string]any{ //使用精确匹配条件
+						"value": userID, //要匹配的具体值
+					},
+				},
+			},
+		},
+		"with_payload": true, //是否把 point 的 payload 一起返回
 	})
 
 	req, _ := http.NewRequest("POST",
@@ -122,10 +134,40 @@ func (q *QdrantStore) Search(queryVec []float64, topK int) ([]VectorChunk, error
 	chunks := make([]VectorChunk, len(result.Result))
 	for i, r := range result.Result {
 		chunks[i] = VectorChunk{
-			ID:   int(r.ID),
-			Text: r.Payload["text"].(string),
+			ID:     int(r.ID),
+			UserID: userID,
+			Text:   r.Payload["text"].(string),
 		}
 	}
 
 	return chunks, nil
 }
+<<<<<<< Updated upstream
+=======
+
+func (q *QdrantStore) Delete(chunkIDs []int) error {
+	body, _ := json.Marshal(map[string]any{
+		"points": chunkIDs,
+	})
+
+	req, _ := http.NewRequest("POST",
+		q.baseURL+"/collections/"+q.collection+"/points/delete",
+		bytes.NewBuffer(body))
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := q.httpClient.Do(req)
+
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("删除向量失败: HTTP %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	return nil
+}
+>>>>>>> Stashed changes
