@@ -40,3 +40,6 @@ storage/
 # Go 编译出来的默认二进制
 rag
 rag.exe
+
+# Go 缓存，gpt编译产物
+.gocache/

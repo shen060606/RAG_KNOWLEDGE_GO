@@ -61,15 +61,16 @@ func (q *QdrantStore) createCollection() error {
 }
 
 // Add 插入向量
-func (q *QdrantStore) Add(userID uint, chunkID int, text string, vector []float64) error {
+func (q *QdrantStore) Add(userID uint, chunkID int, text string, vector []float64, isPublic bool) error {
 	body, _ := json.Marshal(map[string]any{
 		"points": []map[string]any{
 			{
 				"id":     chunkID,
 				"vector": vector,
 				"payload": map[string]any{
-					"text":    text,
-					"user_id": userID,
+					"text":      text,
+					"user_id":   userID,
+					"is_public": isPublic,
 				},
 			},
 		},
@@ -99,11 +100,17 @@ func (q *QdrantStore) Search(userID uint, queryVec []float64, topK int) ([]Vecto
 		"vector": queryVec, //用于相似度搜索的查询向量
 		"limit":  topK,     //最多返回多少条结果
 		"filter": map[string]any{ //附加过滤条件
-			"must": []map[string]any{ //里面的条件都必须满足
+			"should": []map[string]any{ //里面的条件满足其中一个就行
 				{
 					"key": "user_id", //要过滤的 payload 字段名
 					"match": map[string]any{ //使用精确匹配条件
 						"value": userID, //要匹配的具体值
+					},
+				},
+				{
+					"key": "is_public", //要过滤的 payload 字段名
+					"match": map[string]any{
+						"value": true,
 					},
 				},
 			},
@@ -122,6 +129,11 @@ func (q *QdrantStore) Search(userID uint, queryVec []float64, topK int) ([]Vecto
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != 200 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("搜索向量失败: HTTP %d: %s", resp.StatusCode, string(respBody))
+	}
+
 	var result struct {
 		Result []struct {
 			ID      int            `json:"id"`
@@ -129,14 +141,31 @@ func (q *QdrantStore) Search(userID uint, queryVec []float64, topK int) ([]Vecto
 		} `json:"result"`
 	}
 
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("解析 Qdrant 搜索结果失败: %w", err)
+	}
 
 	chunks := make([]VectorChunk, len(result.Result))
 	for i, r := range result.Result {
+		// 提取 payload 中的 text 和 user_id
+		text, _ := r.Payload["text"].(string)
+
+		//类型判断
+		var payloadUserID uint
+		switch v := r.Payload["user_id"].(type) {
+		case float64:
+			payloadUserID = uint(v)
+		case int:
+			payloadUserID = uint(v)
+		}
+
+		isPublic, _ := r.Payload["is_public"].(bool)
+
 		chunks[i] = VectorChunk{
-			ID:     int(r.ID),
-			UserID: userID,
-			Text:   r.Payload["text"].(string),
+			ID:       int(r.ID),
+			UserID:   payloadUserID,
+			Text:     text,
+			IsPublic: isPublic,
 		}
 	}
 

@@ -34,13 +34,14 @@ func InitDB(dsn string) error {
 // ===== 文档相关 =====
 
 // CreateDocument 创建文档记录
-func CreateDocument(userID uint, filename string, filesize int64, chunkcount int, status string) (*Document, error) {
+func CreateDocument(userID uint, filename string, filesize int64, chunkcount int, status string, isPublic bool) (*Document, error) {
 	doc := &Document{
 		UserID:     userID,
 		Filename:   filename,
 		FileSize:   filesize,
 		ChunkCount: chunkcount,
 		Status:     status,
+		IsPublic:   isPublic,
 		CreatedAt:  time.Now(),
 	}
 	if err := DB.Create(doc).Error; err != nil {
@@ -53,8 +54,20 @@ func CreateDocument(userID uint, filename string, filesize int64, chunkcount int
 // ListDocuments 查询所有已就绪的文档
 func ListDocuments(userID uint) ([]Document, error) {
 	var docs []Document
-	err := DB.Where("user_id=? and status = ?", userID, "ready").Order("created_at DESC").Find(&docs).Error
+	err := DB.Where("(user_id=? or is_public=?) and status = ?", userID, true, "ready").Order("created_at DESC").Find(&docs).Error
 	return docs, err
+}
+
+// 查看文档是否是公共文档
+func GetPublicDocumentByFilename(filename string) (*Document, error) {
+	var doc Document
+	err := DB.Where("filename = ? AND is_public = ? AND status = ?", filename, true, "ready").First(&doc).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &doc, nil
 }
 
 // ===== 对话相关 =====
@@ -103,10 +116,11 @@ func DeleteDocument(userID uint, filename string) error {
 // ===== 用户相关 =====
 
 // 注册接口会调用
-func CreateUser(username, passwordHash string) (*User, error) {
+func CreateUser(username, passwordHash, role string) (*User, error) {
 	user := &User{
 		Username:     username,
 		PasswordHash: passwordHash,
+		Role:         role,
 		CreatedAt:    time.Now(),
 	}
 
@@ -137,6 +151,13 @@ func GetUserByID(userID uint) (*User, error) {
 	}
 
 	return &user, nil
+}
+
+// 获取表内总共多少个序号
+func CountUsers() (int64, error) {
+	var count int64
+	err := DB.Model(&User{}).Count(&count).Error
+	return count, err
 }
 
 // ===== session相关 =====

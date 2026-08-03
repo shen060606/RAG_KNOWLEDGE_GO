@@ -28,6 +28,8 @@ func Setup(vs store.Store) *gin.Engine {
 	auth := r.Group("/api")
 	auth.Use(handler.AuthMiddleware())
 
+	auth.GET("/user/me", handler.Me) //个人中心
+
 	auth.POST("/upload", handler.UploadHandler(vs))
 
 	auth.GET("/chat/stream", handler.ChatStream(vs))

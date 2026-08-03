@@ -15,12 +15,13 @@ func NewMemoryStore() Store {
 }
 
 // Add 添加一个文档块到向量存储中
-func (vs *MemoryStore) Add(userID uint, chunkID int, text string, vector []float64) error {
+func (vs *MemoryStore) Add(userID uint, chunkID int, text string, vector []float64, isPublic bool) error {
 	vs.Chunks = append(vs.Chunks, VectorChunk{
-		UserID: userID,
-		ID:     chunkID,
-		Text:   text,
-		Vector: vector,
+		UserID:   userID,
+		ID:       chunkID,
+		Text:     text,
+		Vector:   vector,
+		IsPublic: isPublic,
 	})
 
 	return nil
@@ -36,7 +37,7 @@ func (vs *MemoryStore) Search(userID uint, queryVec []float64, topK int) ([]Vect
 	var results []scored
 
 	for _, c := range vs.Chunks {
-		if c.UserID != userID {
+		if c.UserID != userID && !c.IsPublic {
 			continue
 		}
 		results = append(results, scored{

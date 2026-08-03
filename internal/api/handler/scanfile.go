@@ -27,6 +27,7 @@ func ScanFile(vs store.Store) gin.HandlerFunc {
 				"chunk_count": d.ChunkCount,
 				"filesize":    d.FileSize,
 				"status":      d.Status,
+				"is_public":   d.IsPublic,
 				"created_at":  d.CreatedAt.Format("01-02 15:04"),
 			})
 		}

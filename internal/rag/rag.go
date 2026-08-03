@@ -15,7 +15,7 @@ import (
 )
 
 // Importdoc 导入文档。filename 用于生成全局唯一的 chunk ID，防止不同文档的 chunk 互相覆盖。
-func ImportDoc(vs store.Store, userID uint, filename string, content string) (int, error) {
+func ImportDoc(vs store.Store, userID uint, filename string, content string, isPublic bool) (int, error) {
 	docKey := fmt.Sprintf("%d/%s", userID, filename)
 	// 用文件名 hash 的前 4 字节作为文档编号，乘 100000 保证不同文档的 chunk ID 不冲突
 	hash := md5.Sum([]byte(docKey))
@@ -28,7 +28,7 @@ func ImportDoc(vs store.Store, userID uint, filename string, content string) (in
 			return len(chunks), err
 		}
 		// 全局唯一 ID
-		if err := vs.Add(userID, docBase+c.ID, c.Text, vec); err != nil {
+		if err := vs.Add(userID, docBase+c.ID, c.Text, vec, isPublic); err != nil {
 			return len(chunks), err
 		}
 	}

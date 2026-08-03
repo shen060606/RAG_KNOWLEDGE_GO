@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"github.com/shen060606/rag_koowledge_go/internal/database"
 	"github.com/shen060606/rag_koowledge_go/internal/rag"
 	"github.com/shen060606/rag_koowledge_go/internal/store"
+	"gorm.io/gorm"
 )
 
 func DeleteHandler(vs store.Store) gin.HandlerFunc {
@@ -27,6 +29,18 @@ func DeleteHandler(vs store.Store) gin.HandlerFunc {
 		//1 查找数据库，拿到chunkcount算chunkid范围
 		doc, err := database.GetDocumentByFilename(userID, filename)
 		if err != nil || doc == nil {
+			// 检查是否是公共文档
+			publicDoc, publicErr := database.GetPublicDocumentByFilename(filename)
+			if publicErr == nil && publicDoc != nil {
+				c.JSON(403, gin.H{"msg": "无权限删除公共文档"})
+				return
+			}
+
+			if publicErr != nil && !errors.Is(publicErr, gorm.ErrRecordNotFound) {
+				c.JSON(500, gin.H{"msg": "查询公共文档失败"})
+				return
+			}
+
 			c.JSON(404, gin.H{"msg": "文档不存在"})
 			return
 		}

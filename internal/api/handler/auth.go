@@ -73,8 +73,19 @@ func Register(c *gin.Context) {
 		return
 	}
 
+	//获取数据库中注册用户数量
+	count, err := database.CountUsers()
+	if err != nil {
+		c.JSON(500, gin.H{"msg": "数据库错误"})
+		return
+	}
+
+	role := "user"
+	if count == 0 {
+		role = "admin"
+	}
 	//创建用户
-	if _, err := database.CreateUser(req.Username, string(passwordHash)); err != nil {
+	if _, err := database.CreateUser(req.Username, string(passwordHash), role); err != nil {
 		c.JSON(500, gin.H{"msg": "用户注册失败"})
 		return
 	}
@@ -206,6 +217,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		//4 设置用户信息到上下文，后面的handler就能拿到了
 		c.Set("userID", user.ID)
 		c.Set("username", user.Username)
+		c.Set("role", user.Role)
 
 		c.Next() //继续执行后续的handler
 
@@ -236,4 +248,32 @@ func getCurrentUserID(c *gin.Context) (uint, bool) {
 	}
 
 	return userID, true
+}
+
+func IsAdmin(c *gin.Context) bool {
+	role, ok := c.Get("role")
+	if !ok {
+		return false
+	}
+
+	roleStr, ok := role.(string)
+	if !ok {
+		return false
+	}
+
+	return roleStr == "admin"
+}
+
+func GetCurrentUserRole(c *gin.Context) string {
+	role, ok := c.Get("role")
+	if !ok {
+		return "user"
+	}
+
+	roleStr, ok := role.(string)
+	if !ok {
+		return "user"
+	}
+
+	return roleStr
 }

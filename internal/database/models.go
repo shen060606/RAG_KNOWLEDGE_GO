@@ -6,10 +6,11 @@ import "time"
 type Document struct {
 	ID         uint   `gorm:"primary_key"`
 	UserID     uint   `gorm:"index;not null"` //用户ID
-	Filename   string `gorm:"size:255"`
+	Filename   string `gorm:"size:255;not null"`
 	FileSize   int64
 	ChunkCount int
-	Status     string `gorm:"size:20;default:ready"` // ready / processing
+	Status     string `gorm:"size:20;default:ready"`  // ready / processing
+	IsPublic   bool   `gorm:"not null;default:false"` //是否是公共知识库
 	CreatedAt  time.Time
 }
 
@@ -27,6 +28,7 @@ type User struct {
 	ID           uint   `gorm:"primary_key"`
 	Username     string `gorm:"size:50;uniqueIndex;not null"`
 	PasswordHash string `gorm:"size:255;not null"`
+	Role         string `gorm:"size:20;not null;default:user"` // user / admin
 	CreatedAt    time.Time
 }
 

@@ -38,7 +38,10 @@
     <main id="chat-area">
         <div class="chat-header">
             <h1>🔍 RAG 知识库</h1>
-            <button onclick="logout()" class="btn-logout">退出登录</button>
+            <div class="user-panel">
+                <span id="current-user" class="current-user">加载用户中...</span>
+                <button onclick="logout()" class="btn-logout">退出登录</button>
+            </div>
         </div>
 
         <!-- 消息列表 -->
@@ -60,9 +63,32 @@
         </div>
     </main>
 
-    <script>
+        <script>
         // ===== 会话 ID（页面加载时生成一次） =====
         const sessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        let currentUserRole = 'user';
+        let currentUsername = '';
+
+        // ===== 当前登录用户 =====
+        async function loadCurrentUser() {
+            const res = await fetch('/api/user/me', { credentials: 'same-origin' });
+            const data = await handleAuthResponse(res);
+            if (!data) return false;
+
+            currentUserRole = data.role || 'user';
+            currentUsername = data.username || '';
+
+            const userEl = document.getElementById('current-user');
+            userEl.textContent = currentUsername
+                ? currentUsername + ' · ' + (currentUserRole === 'admin' ? '管理员' : '普通用户')
+                : (currentUserRole === 'admin' ? '管理员' : '普通用户');
+
+            if (currentUserRole === 'admin') {
+                document.body.classList.add('is-admin');
+            }
+
+            return true;
+        }
 
         // ===== 文件上传 =====
 
@@ -89,8 +115,9 @@
                         // 上传成功后直接加到列表，填充已知信息
                         addFileItem({
                             filename: data.filename,
-                            chunk_count: data.chunkCount || 0,
+                            chunk_count: data.chunk_count || data.chunkCount || 0,
                             created_at: '刚刚',
+                            is_public: data.is_public === true || currentUserRole === 'admin',
                         });
                     } else {
                         alert('上传失败: ' + (data.msg || data.error));
@@ -115,7 +142,11 @@
             e.target.value = '';
         }
 
-        // file 参数是对象：{filename, chunk_count, created_at}
+        function isPublicFile(file) {
+            return file.is_public === true || file.IsPublic === true;
+        }
+
+        // file 参数是对象：{filename, chunk_count, created_at, is_public}
         function addFileItem(file) {
             const container = document.getElementById('file-items');
             const empty = container.querySelector('.file-item-empty');
@@ -124,22 +155,36 @@
             const div = document.createElement('div');
             div.className = 'file-item';
 
+            const isPublic = isPublicFile(file);
+
             const span = document.createElement('span');
             span.className = 'file-item-text';
             span.textContent = '📎 ' + file.filename
                 + ' · ' + (file.chunk_count || 0) + ' chunks'
                 + ' · ' + (file.created_at || '');
 
-            const btn = document.createElement('button');
-            btn.className = 'btn-delete-file';
-            btn.textContent = '✕';
-            btn.title = '删除此文档';
-            btn.onclick = function () {
-                deleteFile(file.filename, div);
-            };
+            const tag = document.createElement('span');
+            tag.className = isPublic ? 'file-tag file-tag-public' : 'file-tag file-tag-private';
+            tag.textContent = isPublic ? '公共' : '私有';
 
             div.appendChild(span);
-            div.appendChild(btn);
+
+            const meta = document.createElement('div');
+            meta.className = 'file-item-actions';
+            meta.appendChild(tag);
+
+            if (!isPublic || currentUserRole === 'admin') {
+                const btn = document.createElement('button');
+                btn.className = 'btn-delete-file';
+                btn.textContent = '✕';
+                btn.title = '删除此文档';
+                btn.onclick = function () {
+                    deleteFile(file.filename, div);
+                };
+                meta.appendChild(btn);
+            }
+
+            div.appendChild(meta);
             container.prepend(div);
         }
 
@@ -242,7 +287,10 @@
         }
 
         // ===== 页面加载时读取已有文件 =====
-        window.addEventListener('DOMContentLoaded', function () {
+        window.addEventListener('DOMContentLoaded', async function () {
+            const ok = await loadCurrentUser();
+            if (!ok) return;
+
             fetch('/api/file', { credentials: 'same-origin' })
                 .then(handleAuthResponse)
                 .then(data => {

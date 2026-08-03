@@ -6,15 +6,16 @@ import (
 
 // VectorChunk 一条文档块+它的向量
 type VectorChunk struct {
-	ID     int
-	UserID uint
-	Text   string
-	Vector []float64
+	ID       int
+	UserID   uint
+	Text     string
+	Vector   []float64
+	IsPublic bool
 }
 
 // 定义接口，方便以后改向量数据库等
 type Store interface {
-	Add(userID uint, chunkID int, text string, vector []float64) error
+	Add(userID uint, chunkID int, text string, vector []float64, isPublic bool) error
 	Search(userID uint, queryVec []float64, topK int) ([]VectorChunk, error)
 	Delete(chunkIDs []int) error
 }
