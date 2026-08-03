@@ -286,6 +286,37 @@ body {
     text-align: center;
 }
 
+.answer-sources {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.answer-sources-title {
+    margin-bottom: 6px;
+    color: #374151;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.answer-sources-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.answer-source-item {
+    max-width: 100%;
+    padding: 4px 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 999px;
+    background: #f9fafb;
+    color: #6b7280;
+    font-size: 12px;
+    line-height: 1.4;
+    word-break: break-all;
+}
+
 /* 输入区 */
 .chat-input {
     padding: 16px 24px;

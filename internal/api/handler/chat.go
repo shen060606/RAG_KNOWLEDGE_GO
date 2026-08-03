@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"log/slog"
 	"time"
 
@@ -41,7 +42,7 @@ func ChatStream(vs store.Store) gin.HandlerFunc {
 
 		//2 rag检索，拼接prompt，记录耗时开始
 		startEmbed := time.Now()
-		prompt := rag.AskThreeSteps(vs, userID, q)
+		prompt, sources := rag.AskThreeSteps(vs, userID, q)
 		embedCost := time.Since(startEmbed) // AskThreeSteps 内部含 Embedding + Search
 
 		messages = append(messages, llm.Message{Role: "user", Content: prompt})
@@ -82,7 +83,16 @@ func ChatStream(vs store.Store) gin.HandlerFunc {
 		//6 存ai回答到数据库
 		database.SaveMessage(userID, sessionID, "assistant", answer)
 
-		// 7. 结束信号，向前端发送一条事件名为 done 的自定义事件，携带的数据为空字符串。
+		//7 发送参考来源
+		sourcesJSON, err := json.Marshal(sources)
+		if err != nil {
+			slog.Error("序列化参考来源失败", "err", err)
+		} else {
+			c.SSEvent("sources", string(sourcesJSON))
+			c.Writer.Flush() //接受到一个token就发到前端，不阻塞
+		}
+
+		// 8. 结束信号，向前端发送一条事件名为 done 的自定义事件，携带的数据为空字符串。
 		// 业务含义：通知前端，当前流式任务全部执行完成（比如 RAG 问答回答完毕、文件解析进度走完、扫描任务结束）。
 		c.SSEvent("done", "")
 	}

@@ -8,6 +8,7 @@ import (
 type VectorChunk struct {
 	ID       int
 	UserID   uint
+	Filename string
 	Text     string
 	Vector   []float64
 	IsPublic bool
@@ -15,7 +16,7 @@ type VectorChunk struct {
 
 // 定义接口，方便以后改向量数据库等
 type Store interface {
-	Add(userID uint, chunkID int, text string, vector []float64, isPublic bool) error
+	Add(userID uint, chunkID int, filename, text string, vector []float64, isPublic bool) error
 	Search(userID uint, queryVec []float64, topK int) ([]VectorChunk, error)
 	Delete(chunkIDs []int) error
 }

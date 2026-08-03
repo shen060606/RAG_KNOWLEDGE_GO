@@ -242,6 +242,15 @@
                 document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
             });
 
+            eventSource.addEventListener('sources', function (e) {
+                try {
+                    const sources = JSON.parse(e.data);
+                    renderSources(contentDiv, sources);
+                } catch (err) {
+                    console.error('解析参考来源失败', err);
+                }
+            });
+
             eventSource.addEventListener('error', function (e) {
                 contentDiv.textContent += ' [回答出错]';
                 eventSource.close();
@@ -266,6 +275,42 @@
             messages.appendChild(div);
             messages.scrollTop = messages.scrollHeight;
             return div;
+        }
+
+        function renderSources(contentDiv, sources) {
+            if (!sources || sources.length === 0) {
+                return;
+            }
+
+            const oldSources = contentDiv.querySelector('.answer-sources');
+            if (oldSources) {
+                oldSources.remove();
+            }
+
+            const box = document.createElement('div');
+            box.className = 'answer-sources';
+
+            const title = document.createElement('div');
+            title.className = 'answer-sources-title';
+            title.textContent = '参考来源';
+            box.appendChild(title);
+
+            const list = document.createElement('div');
+            list.className = 'answer-sources-list';
+
+            for (const source of sources) {
+                const item = document.createElement('div');
+                item.className = 'answer-source-item';
+
+                const scope = source.is_public ? '公共' : '私有';
+                item.textContent = '[' + source.index + '] ' + source.filename + ' · ' + scope;
+
+                list.appendChild(item);
+            }
+
+            box.appendChild(list);
+            contentDiv.appendChild(box);
+            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
         }
 
         function handleAuthResponse(res) {

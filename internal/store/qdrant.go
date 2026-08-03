@@ -61,7 +61,7 @@ func (q *QdrantStore) createCollection() error {
 }
 
 // Add 插入向量
-func (q *QdrantStore) Add(userID uint, chunkID int, text string, vector []float64, isPublic bool) error {
+func (q *QdrantStore) Add(userID uint, chunkID int, filename, text string, vector []float64, isPublic bool) error {
 	body, _ := json.Marshal(map[string]any{
 		"points": []map[string]any{
 			{
@@ -70,6 +70,7 @@ func (q *QdrantStore) Add(userID uint, chunkID int, text string, vector []float6
 				"payload": map[string]any{
 					"text":      text,
 					"user_id":   userID,
+					"filename":  filename,
 					"is_public": isPublic,
 				},
 			},
@@ -160,10 +161,12 @@ func (q *QdrantStore) Search(userID uint, queryVec []float64, topK int) ([]Vecto
 		}
 
 		isPublic, _ := r.Payload["is_public"].(bool)
+		filename, _ := r.Payload["filename"].(string)
 
 		chunks[i] = VectorChunk{
 			ID:       int(r.ID),
 			UserID:   payloadUserID,
+			Filename: filename,
 			Text:     text,
 			IsPublic: isPublic,
 		}

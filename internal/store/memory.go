@@ -15,10 +15,11 @@ func NewMemoryStore() Store {
 }
 
 // Add 添加一个文档块到向量存储中
-func (vs *MemoryStore) Add(userID uint, chunkID int, text string, vector []float64, isPublic bool) error {
+func (vs *MemoryStore) Add(userID uint, chunkID int, filename, text string, vector []float64, isPublic bool) error {
 	vs.Chunks = append(vs.Chunks, VectorChunk{
 		UserID:   userID,
 		ID:       chunkID,
+		Filename: filename,
 		Text:     text,
 		Vector:   vector,
 		IsPublic: isPublic,
