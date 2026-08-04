@@ -14,7 +14,7 @@ import (
 
 func UploadHandler(vs store.Store) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userID, ok := getCurrentUserID(c)
+		userID, ok := GetCurrentUserID(c)
 		if !ok {
 			c.JSON(401, gin.H{"msg": "未登录"})
 			return

@@ -21,6 +21,10 @@ func Setup(vs store.Store) *gin.Engine {
 		c.HTML(200, "login.html", nil)
 	})
 
+	r.GET("/console", func(c *gin.Context) {
+		c.HTML(200, "console.html", nil)
+	})
+
 	r.POST("/api/register", handler.Register)
 	r.POST("/api/login", handler.Login)
 
@@ -28,7 +32,10 @@ func Setup(vs store.Store) *gin.Engine {
 	auth := r.Group("/api")
 	auth.Use(handler.AuthMiddleware())
 
-	auth.GET("/user/me", handler.Me) //个人中心
+	auth.GET("/user/me", handler.Me) // 获取当前登录用户信息
+	auth.GET("/user/statistics", handler.UserStatistics)
+	auth.PATCH("/user/username", handler.UpdateUsername)
+	auth.PATCH("/user/password", handler.UpdatePassword)
 
 	auth.POST("/upload", handler.UploadHandler(vs))
 

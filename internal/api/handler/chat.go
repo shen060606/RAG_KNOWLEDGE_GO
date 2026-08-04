@@ -14,7 +14,7 @@ import (
 
 func ChatStream(vs store.Store) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userID, ok := getCurrentUserID(c)
+		userID, ok := GetCurrentUserID(c)
 		if !ok {
 			return
 		}

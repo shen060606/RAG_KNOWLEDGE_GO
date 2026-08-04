@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户中心 · RAG 知识库</title>
+    <link rel="stylesheet" href="/static/console.css">
+</head>
+
+<body>
+    <div class="console-shell">
+        <aside class="console-sidebar">
+            <a class="brand" href="/">
+                <span class="brand-mark">R</span>
+                <span>
+                    <strong>RAG 知识库</strong>
+                    <small>用户中心</small>
+                </span>
+            </a>
+
+            <nav class="console-nav" aria-label="用户中心导航">
+                <button class="nav-item active" type="button" data-section="overview">
+                    <span class="nav-icon">⌂</span>
+                    账户概览
+                </button>
+                <button class="nav-item" type="button" data-section="profile">
+                    <span class="nav-icon">✎</span>
+                    修改用户名
+                </button>
+                <button class="nav-item" type="button" data-section="security">
+                    <span class="nav-icon">◈</span>
+                    账号安全
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <a href="/">返回知识库</a>
+                <button id="logout-button" type="button">退出登录</button>
+            </div>
+        </aside>
+
+        <main class="console-main">
+            <header class="topbar">
+                <div>
+                    <p class="eyebrow">PERSONAL CONSOLE</p>
+                    <h1 id="page-title">账户概览</h1>
+                </div>
+                <div class="account-chip">
+                    <span id="account-avatar" class="account-avatar">U</span>
+                    <span>
+                        <strong id="top-username">加载中...</strong>
+                        <small id="top-role">普通用户</small>
+                    </span>
+                </div>
+            </header>
+
+            <div id="page-loading" class="page-loading">正在加载账户信息...</div>
+
+            <div id="console-content" hidden>
+                <section id="overview-section" class="page-section">
+                    <div class="welcome-card">
+                        <div>
+                            <span id="role-badge" class="role-badge">普通用户</span>
+                            <h2>你好，<span id="welcome-username">用户</span></h2>
+                            <p>这里可以查看账户信息和知识库使用情况。</p>
+                        </div>
+                        <a class="primary-link" href="/">进入知识库</a>
+                    </div>
+
+                    <div class="statistics-grid">
+                        <article class="stat-card">
+                            <span class="stat-label">我的文档</span>
+                            <strong id="document-count">0</strong>
+                            <small>当前账号上传的文档</small>
+                        </article>
+                        <article class="stat-card">
+                            <span class="stat-label">文档分块</span>
+                            <strong id="chunk-count">0</strong>
+                            <small>已写入向量库的知识块</small>
+                        </article>
+                        <article class="stat-card">
+                            <span class="stat-label">提问次数</span>
+                            <strong id="question-count">0</strong>
+                            <small>当前账号累计问答</small>
+                        </article>
+                    </div>
+
+                    <article class="panel account-details">
+                        <div class="panel-heading">
+                            <div>
+                                <h2>账户信息</h2>
+                                <p>当前登录账号的基础资料</p>
+                            </div>
+                        </div>
+                        <dl class="details-list">
+                            <div>
+                                <dt>用户 ID</dt>
+                                <dd id="detail-user-id">-</dd>
+                            </div>
+                            <div>
+                                <dt>用户名</dt>
+                                <dd id="detail-username">-</dd>
+                            </div>
+                            <div>
+                                <dt>账号角色</dt>
+                                <dd id="detail-role">-</dd>
+                            </div>
+                            <div>
+                                <dt>注册时间</dt>
+                                <dd id="detail-created-at">-</dd>
+                            </div>
+                        </dl>
+                    </article>
+                </section>
+
+                <section id="profile-section" class="page-section" hidden>
+                    <article class="panel form-panel">
+                        <div class="panel-heading">
+                            <div>
+                                <h2>修改用户名</h2>
+                                <p>用户名用于登录和页面展示，长度为 3 到 50 个字符。</p>
+                            </div>
+                        </div>
+                        <form id="username-form">
+                            <label for="new-username">新用户名</label>
+                            <input id="new-username" name="username" type="text" minlength="3" maxlength="50"
+                                autocomplete="username" required>
+                            <p class="field-hint">修改完成后立即生效，不会影响你的文档和聊天记录。</p>
+                            <button id="username-submit" class="primary-button" type="submit">保存修改</button>
+                        </form>
+                    </article>
+                </section>
+
+                <section id="security-section" class="page-section" hidden>
+                    <article class="panel form-panel">
+                        <div class="panel-heading">
+                            <div>
+                                <h2>修改密码</h2>
+                                <p>修改成功后，所有设备上的登录状态都会失效。</p>
+                            </div>
+                        </div>
+                        <form id="password-form">
+                            <label for="old-password">当前密码</label>
+                            <input id="old-password" type="password" autocomplete="current-password" required>
+
+                            <div class="two-columns">
+                                <div>
+                                    <label for="new-password">新密码</label>
+                                    <input id="new-password" type="password" minlength="8" maxlength="72"
+                                        autocomplete="new-password" required>
+                                </div>
+                                <div>
+                                    <label for="confirm-password">确认新密码</label>
+                                    <input id="confirm-password" type="password" minlength="8" maxlength="72"
+                                        autocomplete="new-password" required>
+                                </div>
+                            </div>
+
+                            <p class="field-hint">密码至少 8 个字符，最多 72 字节，且不能与当前密码相同。</p>
+                            <button id="password-submit" class="primary-button" type="submit">更新密码</button>
+                        </form>
+                    </article>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="/static/console.js"></script>
+</body>
+
+</html>

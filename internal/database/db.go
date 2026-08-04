@@ -160,6 +160,29 @@ func CountUsers() (int64, error) {
 	return count, err
 }
 
+// 个人中心修改用户名
+func UpdateUsername(userID uint, newUsername string) error {
+	return DB.Model(&User{}).Where("id=?", userID).Update("username", newUsername).Error
+}
+
+// 个人中心修改密码,修改完密码之后配合删除session来重新登录,,,这个是吧两个数据库操作封装成一个事务来写
+func ChangePasswordAndRevokeSessions(userID uint, passwordHash string) error {
+	return DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&User{}).
+			Where("id = ?", userID).
+			Update("password_hash", passwordHash).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Where("user_id = ?", userID).
+			Delete(&Session{}).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
 // ===== session相关 =====
 
 // 登录成功后生成一个随机 sessionID，存进数据库。
@@ -194,4 +217,40 @@ func DeleteSession(sessionID string) error {
 // 可以后面定时清理用
 func DeleteExpiredSessions() error {
 	return DB.Where("expires_at <= ?", time.Now()).Delete(&Session{}).Error
+}
+
+// ===== 个人中心相关 =====
+// 统计个人的文档数量、chunk数量、提问数量
+type UserStatistics struct {
+	DocumentCount int64 `json:"document_count"`
+	ChunkCount    int64 `json:"chunk_count"`
+	QuestionCount int64 `json:"question_count"`
+}
+
+func GetUserStatistics(userID uint) (*UserStatistics, error) {
+	var result UserStatistics
+
+	// 当前用户上传的文档数量
+	if err := DB.Model(&Document{}).
+		Where("user_id = ?", userID).
+		Count(&result.DocumentCount).Error; err != nil {
+		return nil, err
+	}
+
+	// 当前用户上传文档的 Chunk 总数
+	if err := DB.Model(&Document{}).
+		Where("user_id = ?", userID).
+		Select("COALESCE(SUM(chunk_count), 0)").
+		Scan(&result.ChunkCount).Error; err != nil {
+		return nil, err
+	}
+
+	// role=user 表示用户发出的问题，不统计 AI 回答
+	if err := DB.Model(&ChatHistory{}).
+		Where("user_id = ? AND role = ?", userID, "user").
+		Count(&result.QuestionCount).Error; err != nil {
+		return nil, err
+	}
+
+	return &result, nil
 }

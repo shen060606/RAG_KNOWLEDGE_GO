@@ -233,8 +233,8 @@ func generateSessionID() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// getCurrentUserID 从业务handler里面提取userid
-func getCurrentUserID(c *gin.Context) (uint, bool) {
+// GetCurrentUserID 从业务handler里面提取userid
+func GetCurrentUserID(c *gin.Context) (uint, bool) {
 	userIDval, ok := c.Get("userID")
 	if !ok {
 		c.JSON(401, gin.H{"msg": "请先登录"})
