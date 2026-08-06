@@ -1,12 +1,15 @@
 # RAG Knowledge Base - 知识库问答系统
 
-基于 Go + Gin + MySQL + Redis + Qdrant 实现的 RAG（检索增强生成）知识库问答系统。项目支持用户注册登录、Session 鉴权、文档上传、向量检索、多轮对话、SSE 流式回答和用户级数据隔离。
+基于 Go + Gin + MySQL + Redis + Qdrant 实现的 RAG（检索增强生成）知识库问答系统。项目支持用户注册登录、Session 鉴权、私有/公共知识库、文档上传、向量检索、多轮对话、SSE 流式回答、参考来源展示和用户级数据隔离。
 
 ## ✨ 功能
 
 - **登录注册**：支持用户注册、登录、退出登录，密码使用 bcrypt 哈希保存
+- **用户角色**：首个注册用户自动成为管理员，后续注册用户默认为普通用户
 - **Session 鉴权**：登录后服务端创建 Session，并通过 Cookie 识别当前用户
-- **用户数据隔离**：文档、聊天记录、上传文件、向量数据都按 `userID` 隔离
+- **用户中心**：展示账号信息和使用统计，支持修改用户名、修改密码
+- **私有/公共知识库**：普通用户上传私有文档；管理员上传公共文档，所有登录用户均可检索
+- **用户数据隔离**：私有文档、聊天记录、上传文件、向量数据按 `userID` 隔离
 - **多格式文档导入**：支持 TXT、Markdown、PDF 文件上传并自动入库
 - **文件安全校验**：限制上传文件类型，避免任意类型文件上传
 - **文档管理**：支持查看当前用户已上传文档，并删除自己的文档
@@ -14,7 +17,7 @@
 - **向量存储与检索**：基于 Store 接口抽象，支持 MemoryStore 和 QdrantStore
 - **Redis 缓存**：使用 Cache-Aside 模式缓存 Embedding 向量
 - **多轮对话记忆**：按用户和会话保存历史消息，让 LLM 感知上下文
-- **SSE 流式问答**：DeepSeek API 流式调用，前端逐字显示回答
+- **SSE 流式问答**：DeepSeek API 流式调用，前端逐字显示回答，并在完成后展示命中的文档来源及公开范围
 - **MySQL 持久化**：保存用户、Session、文档元数据和聊天记录
 - **YAML 配置管理**：统一使用 `config.yaml` 管理项目配置
 - **请求耗时统计**：使用 `slog` 输出 RAG 链路耗时，方便定位性能问题
@@ -46,6 +49,20 @@ http://localhost:8088/
 
 首页用于文档上传、文件列表展示、文档删除和知识库问答。首页中的 `/api/upload`、`/api/file`、`/api/chat/stream`、`/api/file/:filename`、`/api/logout` 都需要登录后才能使用。
 
+- 普通用户上传的文档为私有文档，仅本人可见、可检索和删除
+- 管理员上传的文档为公共文档，所有登录用户可见、可检索，仅上传者可删除
+- RAG 回答完成后会显示参考文档名称及“公共/私有”标记
+
+### 3. 用户中心
+
+访问：
+
+```text
+http://localhost:8088/console
+```
+
+用户中心展示当前用户的角色、注册时间、文档数、Chunk 数和提问数，并支持修改用户名与密码。修改密码成功后会撤销该用户的全部 Session，需要重新登录。
+
 ## 🏗️ 系统架构
 
 ```text
@@ -54,8 +71,11 @@ Browser
   ├── GET /login
   │      └── login.html：登录 / 注册
   │
-  └── GET /
-         └── index.html：知识库问答页面
+  ├── GET /
+  │      └── index.html：知识库问答页面
+  │
+  └── GET /console
+         └── console.html：用户中心
 
 API
   │
@@ -64,17 +84,21 @@ API
   │
   └── AuthMiddleware        校验 Session，读取当前 userID
          │
+         ├── GET    /api/user/me             当前用户信息
+         ├── GET    /api/user/statistics     当前用户使用统计
+         ├── PATCH  /api/user/username       修改用户名
+         ├── PATCH  /api/user/password       修改密码并撤销 Session
          ├── POST   /api/upload              上传文档
-         ├── GET    /api/file                查看当前用户文档
-         ├── DELETE /api/file/:filename      删除当前用户文档
+         ├── GET    /api/file                查看私有文档和公共文档
+         ├── DELETE /api/file/:filename      删除自己上传的文档
          ├── GET    /api/chat/stream         SSE 流式问答
          └── POST   /api/logout              退出登录
 
 RAG Service
   │
   ├── uploads/<userID>/filename              用户文件隔离
-  ├── MySQL documents/chat_histories         用户数据隔离
-  ├── Qdrant payload user_id                 向量数据隔离
+  ├── MySQL documents/chat_histories         用户数据与公开范围
+  ├── Qdrant payload user_id/is_public       私有/公共向量过滤
   ├── Redis Embedding Cache                  向量缓存
   └── DeepSeek / SiliconFlow                 LLM 与 Embedding
 ```
@@ -90,9 +114,12 @@ rag_knowledge/
 ├── web/
 │   ├── templates/
 │   │   ├── index.html          # 知识库问答页面
-│   │   └── login.html          # 登录 / 注册页面
+│   │   ├── login.html          # 登录 / 注册页面
+│   │   └── console.html        # 用户中心页面
 │   └── static/
-│       └── style.css           # 页面样式
+│       ├── style.css           # 登录页与问答页样式
+│       ├── console.css         # 用户中心样式
+│       └── console.js          # 用户中心交互逻辑
 └── internal/
     ├── api/
     │   ├── router.go           # Gin 路由注册
@@ -101,10 +128,11 @@ rag_knowledge/
     │       ├── upload.go       # 文件上传
     │       ├── delete.go       # 文件删除
     │       ├── chat.go         # SSE 流式问答
-    │       └── scanfile.go     # 文件列表
+    │       ├── scanfile.go     # 文件列表
+    │       └── user.go         # 用户信息、统计与账号修改
     ├── database/
     │   ├── db.go               # GORM 初始化 + 数据库函数
-    │   └── models.go           # User / Session / Document / ChatHistory 模型
+    │   └── models.go           # 数据模型及用户角色/文档公开范围
     ├── rag/
     │   └── rag.go              # RAG 核心流程：导入、检索、问答、删除向量
     ├── store/
@@ -154,7 +182,8 @@ rag_knowledge/
   → 提取文本
   → 切分 Chunk
   → Embedding，优先走 Redis 缓存
-  → 写入 Qdrant/MemoryStore，并带上 userID
+  → 根据用户角色标记私有/公共文档
+  → 写入 Qdrant/MemoryStore，并带上 userID、filename、is_public
   → MySQL 写入 documents 记录
 ```
 
@@ -165,10 +194,11 @@ rag_knowledge/
   → 从 Context 获取 userID
   → 根据 userID + session_id 查询历史对话
   → 对问题做 Embedding
-  → 只检索当前用户的向量数据
+  → 检索当前用户的私有向量 + 所有公共向量
   → 拼接 prompt
   → DeepSeek 流式回答
   → SSE 推送给前端
+  → SSE sources 事件推送命中文档来源
   → MySQL 保存 user 和 assistant 消息
 ```
 
@@ -185,18 +215,23 @@ rag_knowledge/
 
 ## 🔌 API 接口
 
-| 方法     | 路径                  | 是否需要登录       | 说明                   |
-| -------- | --------------------- | ------------------ | ---------------------- |
-| `GET`    | `/`                   | 页面会检查登录状态 | 知识库首页             |
-| `GET`    | `/login`              | 否                 | 登录 / 注册页面        |
-| `POST`   | `/api/register`       | 否                 | 注册用户               |
-| `POST`   | `/api/login`          | 否                 | 登录并创建 Session     |
-| `POST`   | `/api/logout`         | 是                 | 退出登录并删除 Session |
-| `POST`   | `/api/upload`         | 是                 | 上传文档               |
-| `GET`    | `/api/file`           | 是                 | 获取当前用户的文档列表 |
-| `DELETE` | `/api/file/:filename` | 是                 | 删除当前用户的指定文档 |
-| `GET`    | `/api/chat/stream`    | 是                 | SSE 流式问答           |
-| `GET`    | `/static/*filepath`   | 否                 | 静态资源               |
+| 方法     | 路径                   | 是否需要登录       | 说明                                |
+| -------- | ---------------------- | ------------------ | ----------------------------------- |
+| `GET`    | `/`                    | 页面会检查登录状态 | 知识库首页                          |
+| `GET`    | `/login`               | 否                 | 登录 / 注册页面                     |
+| `GET`    | `/console`             | 页面会检查登录状态 | 用户中心                            |
+| `POST`   | `/api/register`        | 否                 | 注册用户；首个用户成为管理员        |
+| `POST`   | `/api/login`           | 否                 | 登录并创建 Session                  |
+| `GET`    | `/api/user/me`         | 是                 | 获取当前用户信息与角色              |
+| `GET`    | `/api/user/statistics` | 是                 | 获取文档、Chunk、提问统计           |
+| `PATCH`  | `/api/user/username`   | 是                 | 修改用户名                          |
+| `PATCH`  | `/api/user/password`   | 是                 | 修改密码并撤销该用户全部 Session     |
+| `POST`   | `/api/logout`          | 是                 | 退出登录并删除当前 Session           |
+| `POST`   | `/api/upload`          | 是                 | 上传文档；管理员文档自动设为公共     |
+| `GET`    | `/api/file`            | 是                 | 获取自己的私有文档及公共文档         |
+| `DELETE` | `/api/file/:filename`  | 是                 | 删除自己上传的文档                   |
+| `GET`    | `/api/chat/stream`     | 是                 | SSE 流式问答及参考来源               |
+| `GET`    | `/static/*filepath`    | 否                 | 静态资源                            |
 
 ## 🛠 核心设计
 
@@ -206,7 +241,7 @@ rag_knowledge/
 
 `sessions` 表保存登录态，浏览器通过 Cookie 携带 Session ID。后端每次访问受保护接口时都会通过中间件校验 Session。
 
-### 2. 用户级数据隔离
+### 2. 用户级数据隔离与公共知识库
 
 系统通过 `userID` 隔离不同用户的数据：
 
@@ -214,15 +249,16 @@ rag_knowledge/
 - MySQL `chat_histories` 表带 `user_id`
 - 上传文件保存到 `uploads/<userID>/`
 - Qdrant 向量 payload 带 `user_id`
-- 向量检索时带 `user_id` 过滤条件
+- 公共文档在 MySQL 和向量 payload 中使用 `is_public` 标记
+- 向量检索条件为“当前用户私有数据或公共数据”
 
-这样可以避免 A 用户看到、检索或删除 B 用户的数据。
+这样既能避免 A 用户看到、检索或删除 B 用户的私有数据，也允许所有登录用户共享管理员上传的公共知识。
 
 ### 3. Store 接口抽象
 
 ```go
 type Store interface {
-    Add(userID uint, chunkID int, text string, vector []float64) error
+    Add(userID uint, chunkID int, filename, text string, vector []float64, isPublic bool) error
     Search(userID uint, queryVec []float64, topK int) ([]VectorChunk, error)
     Delete(chunkIDs []int) error
 }
@@ -294,6 +330,7 @@ http://localhost:8088/
 | `api/handler/delete.go`   | 文件删除       | `DeleteHandler()`                                                      |
 | `api/handler/chat.go`     | 流式问答       | `ChatStream()`                                                         |
 | `api/handler/scanfile.go` | 文件列表       | `ScanFile()`                                                           |
+| `api/handler/user.go`     | 用户中心       | `Me()`, `UserStatistics()`, `UpdateUsername()`, `UpdatePassword()`     |
 | `database`                | MySQL 持久化   | `CreateUser()`, `CreateSession()`, `CreateDocument()`, `SaveMessage()` |
 | `rag`                     | RAG 核心流程   | `ImportDoc()`, `AskThreeSteps()`, `DeleteDoc()`                        |
 | `store`                   | 向量存储接口   | `Add()`, `Search()`, `Delete()`                                        |
@@ -323,7 +360,8 @@ http://localhost:8088/
 - **V3** ✅ 多轮对话记忆 + MySQL 持久化 + Redis Embedding 缓存 + 配置管理
 - **V4** ✅ Store 接口抽象 + Qdrant 向量库 + 文件上传安全修复 + 文档删除
 - **V5** ✅ 登录注册 + Session 鉴权 + 用户级数据隔离 + 登录页面
-- **后续优化** 🚧 管理后台、公共知识库、安全增强、混合检索、Rerank
+- **V6** ✅ 管理员角色 + 公共知识库 + 回答来源展示 + 用户中心
+- **后续优化** 🚧 完整管理后台、安全增强、混合检索、Rerank
 
 ## 📄 License
 
